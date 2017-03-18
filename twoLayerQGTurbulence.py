@@ -133,9 +133,8 @@ class model(doublyPeriodicModel):
     def _init_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
 
-        # Divide-safe square wavenumber
-        self.kay2 = self.rKK**2 + self.rLL**2
-        self.kay2[0, 0] = float('Inf')
+        # Square wavenumber
+        self.kay2 = self.rKK**2.0 + self.rLL**2.0
 
         # Deformation wavenumber
         self.kDef = self.f0**2.0/self.g * (self.H1+self.H2)/(self.H1*self.H2)
@@ -147,12 +146,14 @@ class model(doublyPeriodicModel):
         self.F1 = self.kDef**2.0 / (1 + self.delta**2.0)
         self.F2 = self.delta*self.F1
 
-        # Layer-wise background PV gradients
+        # Layer-wise background PV gradients (scalars)
         self.Qy1 = self.beta + self.F1*(self.U1-self.U2)
         self.Qy2 = self.beta - self.F2*(self.U1-self.U2)
 
         # 1/(determinant of the PV-streamfunction relation matrix)
-        #self.oneDivDetM
+        detM = self.kay2*(self.kay2 + self.F1 + self.F2 ) 
+        detM[0, 0] = float('Inf')
+        self.oneDivDetM = 1.0 / detM
             
         # Prognostic variables  - - - - - - - - - - - - - - - - - - - - - - - -  
         ## Vorticity (real)
@@ -175,20 +176,40 @@ class model(doublyPeriodicModel):
         self.v2  = np.zeros((self.nx, self.ny), np.dtype('float64'))
 
     def _invert_for_streamfunctions(self):
+        """ Invert the layer-wise potential vorticity fields to get 
+            the associated streamfunctions """
+
+        # Views
+        q1h = self.soln[:, :, 0]
+        q2h = self.soln[:, :, 1]
+
+        self.p1h = -self.oneDivDetM*( \
+                    (self.kay2+self.F2)*q1h + self.F1*q2h )
+
+        self.p2h = -self.oneDivDetM*( \
+                    self.F2*q1h + (self.kay2+self.F1)*q2h )
 
     def _update_diagnostic_variables(self):
         """ Update diagnostic variables to current model state """
 
         # For convenience:
-        qh = self.soln[:, :, 0]
+        q1h = self.soln[:, :, 0]
+        q2h = self.soln[:, :, 1]
+        
+        self._invert_for_streamfunctions()
 
          # Get streamfunction
         self.ph = -qh / self.kay2
 
         # Physical-space PV and velocitiy components
-        self.q = self.irfft2(qh)
-        self.u = self.irfft2(-self.rjLL*self.ph) 
-        self.v = self.irfft2( self.rjKK*self.ph)
+        self.q1 = self.irfft2(q1h)
+        self.q2 = self.irfft2(q2h)
+
+        self.u1 = self.irfft2(-self.rjLL*self.p1h) 
+        self.u2 = self.irfft2(-self.rjLL*self.p1h) 
+
+        self.v1 = self.irfft2( self.rjKK*self.p1h)
+        self.v2 = self.irfft2( self.rjKK*self.p1h)
         
     # Visible methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def set_physical_sol(self, soln):
