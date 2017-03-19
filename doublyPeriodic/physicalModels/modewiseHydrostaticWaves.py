@@ -22,7 +22,6 @@ class hydrostaticWaveModel(doublyPeriodicModel):
             dt = 1.0e1,                    # Numerical timestep
             ## Computational parameters
             nThreads = 1,                   # Number of threads for FFTW
-            dealias = True, 
             ## Printing and saving
             dnSave = 1e2,                   # Interval to save (in timesteps)
             ## Plotting
@@ -65,7 +64,6 @@ class hydrostaticWaveModel(doublyPeriodicModel):
             step = 0,                       # Current step
             # Computational parameters
             nThreads = nThreads,            # Number of threads for FFTW
-            dealias  = dealias,
             # Simple I/O
             dnSave    = dnSave,             # Interval to save (in timesteps)
             # Plotting
@@ -203,7 +201,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
                                         )
 
         #self.RHS[:, :, 1] = np.zeros_like(self.RHS[:, :, 0])
-        self._dealias_imag_RHS(self.RHS)
+        self._dealias_RHS(self.RHS)
          
     def _init_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
@@ -282,12 +280,12 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         self.soln[:, :, 0] = self.fft2(q)
         self.soln[:, :, 1] = self.fft2(A)
         
-        #self.soln = self._dealias_imag(self.soln)
+        self.soln = self._dealias(self.soln)
 
     def set_spectral_soln(self, soln):
         """ Initialize model with a spectral space solution """ 
         self.soln = soln
-        self.soln = self._dealias_imag(self.soln)
+        self.soln = self._dealias(self.soln)
 
     def run_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """
