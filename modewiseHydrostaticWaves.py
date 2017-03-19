@@ -19,7 +19,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
             Ly = None, 
             ## Timestepping parameters
             t  = 0.0,  
-            dt = 1.0e-2,                    # Numerical timestep
+            dt = 1.0e1,                    # Numerical timestep
             ## Computational parameters
             nThreads = 1,                   # Number of threads for FFTW
             dealias = True, 
@@ -29,20 +29,20 @@ class hydrostaticWaveModel(doublyPeriodicModel):
             makingPlots = False,
             # Parameters specific to two-dimensional turbulence - - - - - - - - 
             name = "hydrostaticWaveEquationExample", 
-            physics = """two-dimensional turbulence and the 
-                            hydrostatic wave equation""",
+            physics = "two-dimensional turbulence and the" + \
+                            " hydrostatic wave equation",
             nVars = 2, 
             realVars = False,
             ## Parameters! 
             ### Rotating and gravitating Earth parameters
-            f0 = 1, 
-            sigma = sqrt(5),
-            kappa = 4.0, 
+            f0 = 1.0, 
+            sigma = 3.0,
+            kappa = 8.0, 
             ### Friction: 4th order hyperviscosity
-            waveVisc = 1.0e-2,
-            meanVisc = 1.0e-2,
-            waveViscOrder = 2.0,
-            meanViscOrder = 2.0,
+            waveVisc = 1.0e-8,
+            meanVisc = 1.0e-16,
+            waveViscOrder = 4.0,
+            meanViscOrder = 4.0,
         ):
 
         # The default domain is square
@@ -113,7 +113,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         soln[:, :, 1] = A0
 
         self.set_physical_soln(soln)
-
+        
     # Hidden methods  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
@@ -132,8 +132,11 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         # Dispersion operator
         waveDispersion = self.alpha*self.kappa**2.0 - self.KK**2.0 - self.LL**2.0
 
-        self.linearCoeff[:, :, 1] = waveDissipation \
-            + self.invE*1j*self.alpha*self.sigma*waveDispersion
+        #self.linearCoeff[:, :, 1] = waveDissipation \
+        #    - self.invE*1j*self.alpha*self.sigma*waveDispersion
+
+        self.linearCoeff[:, :, 1] = self.invE*1j*self.alpha*self.sigma*waveDispersion
+            
        
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of the equation """
@@ -141,9 +144,6 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         # Views for clarity:
         qh = soln[:, :, 0]
         Ah = soln[:, :, 1]
-
-        # Calculate self.ph
-        self.ph = -qh / self.kay2
 
         # Physical-space PV and velocitiy components
         self.q = np.real(self.ifft2(qh))
@@ -154,9 +154,12 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         self.Axx = -self.ifft2(self.KK**2.0*Ah)
         self.Ayy = -self.ifft2(self.LL**2.0*Ah)
         self.Axy = -self.ifft2(self.LL*self.KK*Ah)
-        self.EA  = -self.ifft2( Ah*( \
+        self.EA  = -self.ifft2( self.alpha/2.0*Ah*( \
                         self.KK**2.0 + self.LL**2.0 \
-                        + (4+3*self.alpha)*self.kappa**2.0 ))
+                        + (4.0+3.0*self.alpha)*self.kappa**2.0 ))
+
+        # Calculate self.ph
+        self.ph = -qh / self.kay2
 
         # Mean velocities
         self.U = np.real(self.ifft2(-self.jLL*self.ph))
@@ -174,7 +177,6 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         Axy = self.Axy
         f0 = self.f0
         sigma = self.sigma
-        alpha = self.alpha
         kappa = self.kappa
 
         # Right hand side for q
@@ -200,7 +202,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
                                   - V*(1j*sigma*Axx - f0*Axy) ) \
                                         )
 
-        self.RHS[:, :, 1] = np.zeros_like(self.RHS[:, :, 0])
+        #self.RHS[:, :, 1] = np.zeros_like(self.RHS[:, :, 0])
         self._dealias_imag_RHS(self.RHS)
          
     def _init_parameters(self):
@@ -295,7 +297,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         self._start_timer()
 
         # Step forward
-        while (self.step <= step0+nSteps):
+        while (self.step < step0+nSteps):
             
             self._step_forward()
 
@@ -311,6 +313,8 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         # Figure out how to do this efficiently.
         import matplotlib.pyplot as plt
 
+        self.update_state_variables()
+
         # Initialize colorbar dictionary
         colorbarProperties = { 
             'orientation' : 'vertical',
@@ -325,19 +329,15 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         plt.pcolormesh(self.xx, self.yy, self.q, cmap='RdBu_r')
         plt.axis('square')
 
-        #plt.colorbar(**colorbarProperties)
-
         ax2 = plt.subplot(122)
         plt.pcolormesh(self.xx, self.yy, sqrt(self.uu**2.0+self.vv**2.0))
         plt.axis('square')
 
-        #plt.colorbar(**colorbarProperties)
-
     def describe_model(self):
         """ Describe the current model state """
 
-        print("\nThis is a doubly-periodic spectral model for " + \
-                "{:s} ".format(self.physics) + \
+        print("\nThis is a doubly-periodic spectral model for \n" + \
+                "{:s} \n".format(self.physics) + \
                 "with the following attributes:\n\n" + \
                 "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
                 "   Resolution   : {:d} X {:d}\n".format(self.nx, self.ny) + \
@@ -351,7 +351,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         """ March system forward in time using forward Euler scheme """
     
         self._calc_right_hand_side(self.soln, self.t)
-        self.soln += self.dt*((self.RHS).copy() - self.linearCoeff*self.soln)
+        self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
 
     def _init_time_stepper_forward_euler(self):
         """ Initialize and allocate vars for forward Euler time-marching """
@@ -414,13 +414,14 @@ class hydrostaticWaveModel(doublyPeriodicModel):
 
         self._calc_right_hand_side(self.soln, self.t)
         self.NL1 = self.RHS.copy() - self.linearCoeff*self.soln
-                    
+
         t1 = self.t + self.dt/2
-        self.soln1 = self.soln + self.dt/2*self.NL1, 
+        self.soln1 = self.soln + self.dt/2.0*self.NL1
+
         self._calc_right_hand_side(self.soln1, t1) 
         self.NL2 = self.RHS.copy() - self.linearCoeff*self.soln1
 
-        self.soln1 = self.soln + self.dt/2*self.NL2
+        self.soln1 = self.soln + self.dt/2.0*self.NL2
         self._calc_right_hand_side(self.soln1, t1) 
         self.NL3 = self.RHS.copy() - self.linearCoeff*self.soln1
 
@@ -494,7 +495,7 @@ class hydrostaticWaveModel(doublyPeriodicModel):
         circ = rCirc*exp(2j*pi*(np.arange(1, nCirc+1)-1/2)/nCirc) 
 
         # Circular contour around the point to be calculated
-        zc = linearCoeffDt[..., np.newaxis] \
+        zc = -linearCoeffDt[..., np.newaxis] \
                 + circ[np.newaxis, np.newaxis, np.newaxis, ...]
 
         # Four coefficients, zeta, alpha, beta, and gamma
@@ -540,12 +541,12 @@ class hydrostaticWaveModel(doublyPeriodicModel):
             self.NL3 = np.zeros(self.physicalShape, np.dtype('complex128'))
             self.NL4 = np.zeros(self.physicalShape, np.dtype('complex128'))
 
-    _init_time_stepper = _init_time_stepper_forward_euler
-    _step_forward = _step_forward_forward_euler
+    #_init_time_stepper = _init_time_stepper_forward_euler
+    #_step_forward = _step_forward_forward_euler
     #_init_time_stepper = _init_time_stepper_RKW3
     #_step_forward = _step_forward_RKW3
     #_init_time_stepper = _init_time_stepper_RK4
     #_step_forward = _step_forward_RK4
-    #_init_time_stepper = _init_time_stepper_ETDRK4
-    #_step_forward = _step_forward_ETDRK4
+    _init_time_stepper = _init_time_stepper_ETDRK4
+    _step_forward = _step_forward_ETDRK4
 

@@ -11,10 +11,20 @@ colorbarProperties = {
     'extend'      : 'neither',
 }
 
+f0 = 1.0
+sigma = 2.0
+alpha = sigma**2.0/f0**2.0 - 1
+
+k0 = 16
+kappa = k0 / sqrt(alpha)
+
 # Create the model
 m = modewiseHydrostaticWaves.hydrostaticWaveModel(
     nThreads = 4, 
     makingPlots = True,
+    f0 = f0, 
+    sigma = sigma, 
+    kappa = kappa,
 )
 
 m.describe_model()

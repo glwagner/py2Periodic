@@ -16,7 +16,7 @@ m = twoDimTurbulence.model(
     nx = 256, 
     Lx = 2.0*pi,
     dt = 1.0e-1, 
-    nu = 1.0e-3,
+    nu = 1.0e-2,
     nThreads = 4, 
 )
 

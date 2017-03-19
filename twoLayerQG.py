@@ -438,7 +438,7 @@ class twoLayerQGModel(doublyPeriodicModel):
         circ = rCirc*exp(2j*pi*(np.arange(1, nCirc+1)-1/2)/nCirc) 
 
         # Circular contour around the point to be calculated
-        zc = linearCoeffDt[..., np.newaxis] \
+        zc = -linearCoeffDt[..., np.newaxis] \
                 + circ[np.newaxis, np.newaxis, np.newaxis, ...]
 
         # Four coefficients, zeta, alpha, beta, and gamma
