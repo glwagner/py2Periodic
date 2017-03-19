@@ -13,10 +13,10 @@ colorbarProperties = {
 
 # Create the model
 m = twoDimTurbulence.model(
-    nx = 128, 
+    nx = 256, 
     Lx = 2.0*pi,
     dt = 1.0e-1, 
-    nu = 1.0e-4,
+    nu = 1.0e-3,
     nThreads = 4, 
 )
 
@@ -46,7 +46,7 @@ plt.axis('square')
 plt.xlabel('$x$', labelpad=5.0)
 plt.ylabel('$y$', labelpad=12.0)
 
-plt.pause(2)
+plt.pause(1)
 
 # Run a loop
 for ii in np.arange(0, 20):
@@ -55,3 +55,5 @@ for ii in np.arange(0, 20):
 
     plt.pcolormesh(m.xx, m.yy, m.q, cmap='RdBu_r')
     plt.pause(0.1)
+
+plt.show()
