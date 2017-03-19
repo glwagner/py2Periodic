@@ -34,7 +34,9 @@ class doublyPeriodicModel(object):
             # Simple I/O
             dnLog     = 1e2,
             dnSave    = 1e2,            # Interval to save (in timesteps)
-            save2disk = False, 
+            savingData = False, 
+            # Plotting
+            makingPlots = False,
         ):
 
         # For convenience, use a default square, uniformly-gridded domain when 
@@ -55,7 +57,8 @@ class doublyPeriodicModel(object):
         self.step = step
         self.nThreads = nThreads
         self.dealias = dealias
-        self.save2disk = save2disk
+        self.savingData = savingData
+        self.makingPlots = makingPlots
         self.dnLog = dnLog
         self.dnSave = dnSave
 
@@ -152,6 +155,16 @@ class doublyPeriodicModel(object):
                 "tComp = {:.3f} s".format(self.t, self.step, tc))
         self._start_timer()
 
+    def _dealias_real_RHS(self, array):
+        """ Dealias the RHS for real variables """
+        self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
+        self.RHS[:, self.nx//3:, :] = 0.0
+
+    def _dealias_imag_RHS(self, array):
+        """ Dealias the RHS for real variables """
+        self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
+        self.RHS[:, self.nx//3:2*self.nx//3, :] = 0.0
+
     def _dealias_real(self, array):
         """ Dealias the Fourier transform of a real array """
         
@@ -160,16 +173,11 @@ class doublyPeriodicModel(object):
 
         return array
 
-    def _dealias_real_RHS(self, array):
-        """ Dealias the RHS for real variables """
-        self.RHS[self.nx//3:2*self.nx//3, :, :] = 0.0
-        self.RHS[:, self.ny//3:, :] = 0.0
-
     def _dealias_imag(self, array):
         """ Dealias the Fourier transform of an imaginary array """
         
-        array[self.nx//3:, :, :] = 0.0
-        array[:, self.ny//3:, :] = 0.0
+        array[self.ny//3:2*self.ny//3, :, :] = 0.0
+        array[:, self.nx//3:2*self.nx//3, :] = 0.0
 
         return array
 

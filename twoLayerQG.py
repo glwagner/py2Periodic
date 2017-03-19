@@ -1,11 +1,10 @@
 from __future__ import division
 import numpy as np
 from numpy import pi, exp, sqrt, cos, sin
-from spectralModels import doublyPeriodicModel
-#from .timeSteppers import *
+from doublyPeriodic import doublyPeriodicModel
 import time
 
-class model(doublyPeriodicModel):
+class twoLayerQGModel(doublyPeriodicModel):
 
     """ This class describes a 2D, doubly-periodic turbulence model 
         in velocity-vorticity formulation. """
@@ -14,18 +13,20 @@ class model(doublyPeriodicModel):
             self,
             # Parameters general to the doubly-periodic model - - - - - - - - -  
             ## Grid parameters
-            nx = 256,
-            Lx = 2.0*pi, 
+            nx = 128,
+            Lx = 1.0e6,
             ny = None,
             Ly = None, 
             ## Timestepping parameters
             t  = 0.0,  
-            dt = 1.0e-1,                    # Numerical timestep
+            dt = 1.0e-2,                    # Numerical timestep
             ## Computational parameters
             nThreads = 1,                   # Number of threads for FFTW
             dealias = True, 
             ## Printing and saving
             dnSave = 1e2,                   # Interval to save (in timesteps)
+            ## Plotting
+            makingPlots = False,
             # Parameters specific to two-dimensional turbulence - - - - - - - - 
             name = "generic2LayerQGModel", 
             physics = "two-layer quasi-geostrophic turbulence", 
@@ -40,10 +41,10 @@ class model(doublyPeriodicModel):
             H1 = 2.0e3,
             H2 = 2.0e3,
             ### Upper and lower layer mean velocity
-            U1 = 0.1,
+            U1 = 0.2,
             U2 = 0.1,
             ### Friction: 4th order hyperviscosity and Ekman drag
-            nu = 1.0e-4,
+            nu = 1.0e0,
             ek = 1.0e-1,
         ):
 
@@ -70,6 +71,8 @@ class model(doublyPeriodicModel):
             dealias  = dealias,
             # Simple I/O
             dnSave    = dnSave,             # Interval to save (in timesteps)
+            # Plotting
+            makingPlots = makingPlots,
         )
 
         # Move these around.
@@ -94,7 +97,7 @@ class model(doublyPeriodicModel):
         self._init_time_stepper()
 
         ## Initialize the solution
-        self.set_physical_sol(np.random.standard_normal(self.physicalShape))
+        self.set_physical_soln(0.01*np.random.standard_normal(self.physicalShape))
 
     # Hidden methods  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _init_linear_coeff(self):
@@ -112,21 +115,34 @@ class model(doublyPeriodicModel):
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of the equation """
 
-        # For clarity:
+        # Views for clarity:
         q1h = soln[:, :, 0]
         q2h = soln[:, :, 1]
 
-        # Get streamfunction
-        self.ph = -qh / self.kay2
+        # Calculate self.p1h and self.p2h
+        #self.p1h, self.p2h = self._invert_for_streamfunction(q1h, q2h)
+        self._invert_for_streamfunctions(q1h, q2h)
 
         # Physical-space PV and velocitiy components
-        self.q = self.irfft2(qh)
-        self.u = self.irfft2(-self.rjLL*self.ph) 
-        self.v = self.irfft2( self.rjKK*self.ph)
+        self.q1 = self.irfft2(q1h)
+        self.q2 = self.irfft2(q2h)
 
-        # Advection and diffusion
-        self.RHS[:, :, 0] = -self.rjKK*self.rfft2(self.u*self.q) \
-                                -self.rjLL*self.rfft2(self.v*self.q)
+        self.u1 = self.irfft2(-self.rjLL*self.p1h) 
+        self.u2 = self.irfft2(-self.rjLL*self.p2h) 
+
+        self.v1 = self.irfft2( self.rjKK*self.p1h)
+        self.v2 = self.irfft2( self.rjKK*self.p2h)
+
+        # Right hand side for:
+        # 0. q1, and
+        self.RHS[:, :, 0] = -self.rjKK*self.rfft2(self.u1*self.q1) \
+                                -self.rjLL*self.rfft2(self.v1*self.q1) \
+                                - self.Q1y*self.p1h                       
+
+        # 1. q2.
+        self.RHS[:, :, 1] = -self.rjKK*self.rfft2(self.u2*self.q2) \
+                                -self.rjLL*self.rfft2(self.v2*self.q2) \
+                                - self.Q2y*self.p2h + self.ek*self.kay2*self.p2h                       
 
         self._dealias_real_RHS(self.RHS)
          
@@ -147,8 +163,8 @@ class model(doublyPeriodicModel):
         self.F2 = self.delta*self.F1
 
         # Layer-wise background PV gradients (scalars)
-        self.Qy1 = self.beta + self.F1*(self.U1-self.U2)
-        self.Qy2 = self.beta - self.F2*(self.U1-self.U2)
+        self.Q1y = self.beta + self.F1*(self.U1-self.U2)
+        self.Q2y = self.beta - self.F2*(self.U1-self.U2)
 
         # 1/(determinant of the PV-streamfunction relation matrix)
         detM = self.kay2*(self.kay2 + self.F1 + self.F2 ) 
@@ -175,13 +191,9 @@ class model(doublyPeriodicModel):
         self.v1  = np.zeros((self.nx, self.ny), np.dtype('float64'))
         self.v2  = np.zeros((self.nx, self.ny), np.dtype('float64'))
 
-    def _invert_for_streamfunctions(self):
+    def _invert_for_streamfunctions(self, q1h, q2h):
         """ Invert the layer-wise potential vorticity fields to get 
             the associated streamfunctions """
-
-        # Views
-        q1h = self.soln[:, :, 0]
-        q2h = self.soln[:, :, 1]
 
         self.p1h = -self.oneDivDetM*( \
                     (self.kay2+self.F2)*q1h + self.F1*q2h )
@@ -189,38 +201,42 @@ class model(doublyPeriodicModel):
         self.p2h = -self.oneDivDetM*( \
                     self.F2*q1h + (self.kay2+self.F1)*q2h )
 
-    def _update_diagnostic_variables(self):
+    def update_state_variables(self):
         """ Update diagnostic variables to current model state """
 
-        # For convenience:
+        # Views for clarity:
         q1h = self.soln[:, :, 0]
         q2h = self.soln[:, :, 1]
         
-        self._invert_for_streamfunctions()
-
-         # Get streamfunction
-        self.ph = -qh / self.kay2
+        self._invert_for_streamfunctions(q1h, q2h)
 
         # Physical-space PV and velocitiy components
         self.q1 = self.irfft2(q1h)
         self.q2 = self.irfft2(q2h)
 
         self.u1 = self.irfft2(-self.rjLL*self.p1h) 
-        self.u2 = self.irfft2(-self.rjLL*self.p1h) 
+        self.u2 = self.irfft2(-self.rjLL*self.p2h) 
 
         self.v1 = self.irfft2( self.rjKK*self.p1h)
-        self.v2 = self.irfft2( self.rjKK*self.p1h)
+        self.v2 = self.irfft2( self.rjKK*self.p2h)
         
     # Visible methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def set_physical_sol(self, soln):
+    def set_physical_soln(self, soln):
         """ Initialize vorticity """ 
-        self.q  = soln[:, :, 0]
-        self.soln[:, :, 0] = self.rfft2(self.q)
 
-    def set_spectral_sol(self, qh):
+        # View
+        q1 = soln[:, :, 0]
+        q2 = soln[:, :, 1]
+
+        self.soln[:, :, 0] = self.rfft2(q1)
+        self.soln[:, :, 1] = self.rfft2(q2)
+        
+        self.soln = self._dealias_real(self.soln)
+
+    def set_spectral_soln(self, soln):
         """ Initialize vorticity """ 
-        self.soln[:, :, 0] = qh
-        self.q  = np.real(self.irfft2(qh))
+        self.soln = soln
+        self.soln = self._dealias_real(self.soln)
 
     def run_nSteps(self, nSteps=1e2, dnLog=1e2):
         """ Step forward nStep times """
@@ -233,7 +249,6 @@ class model(doublyPeriodicModel):
         while (self.step <= step0+nSteps):
             
             self._step_forward()
-            self._update_diagnostic_variables()
 
             if (self.step % dnLog == 0.0):
                 self._print_status()
@@ -241,26 +256,26 @@ class model(doublyPeriodicModel):
             self.t += self.dt
             self.step += 1
 
-    def run_for_time(self, nSteps=1e2):
-        """ Step forward nStep time-step """
+    def plot_current_state(self):
+        """ Create a simple plot that shows the state of the model."""
 
-        # Initialize run
-        step0 = self.step
-        self._start_timer()
+        # Figure out how to do this efficiently.
+        import matplotlib.pyplot as plt
 
-        # Step forward
-        while (self.step <= step0+nSteps):
-            
-            self._step_forward()
+        fig = plt.figure('Two-layer quasi-geostrophic flow', 
+                            figsize=(12, 8))
 
-            self.t += self.dt
-            self.step += 1
+        ax1 = plt.subplot(221)
+        plt.pcolormesh(self.xx, self.yy, self.q1, cmap='RdBu_r')
 
-        tc = time.time() - self.timer
+        ax2 = plt.subplot(222, sharex=ax1, sharey=ax1)
+        plt.pcolormesh(self.xx, self.yy, self.q2, cmap='RdBu_r')
 
-        print("Elapsed time = {:3f}".format(tc))
-        
-        return tc
+        ax3 = plt.subplot(223, sharex=ax1, sharey=ax1)
+        plt.pcolormesh(self.xx, self.yy, sqrt(self.u1**2.0+self.v1**2.0))
+
+        ax4 = plt.subplot(224, sharex=ax1, sharey=ax1)
+        plt.pcolormesh(self.xx, self.yy, sqrt(self.u2**2.0+self.v2**2.0))
 
     def describe_model(self):
         """ Describe the current model state """
@@ -318,16 +333,21 @@ class model(doublyPeriodicModel):
     def _step_forward_RKW3(self):
         """ March the system forward in time using a RK3W-theta scheme """
 
-        self.NL1 = self._calc_right_hand_side(self.soln, self.t)
+        self._calc_right_hand_side(self.soln, self.t)
+        self.NL1 = self.RHS.copy()
+
         self.soln  = (self.L1*self.soln + self.c1*self.dt*self.NL1).copy()
 
+        self._calc_right_hand_side(self.soln, self.t)
         self.NL2 = self.NL1.copy()
-        self.NL1 = self._calc_right_hand_side(self.soln, self.t)
+        self.NL1 = self.RHS.copy()
+
         self.soln = (self.L2*self.soln + self.c2*self.dt*self.NL1 \
                     + self.d1*self.dt*self.NL2).copy()
 
+        self._calc_right_hand_side(self.soln, self.t)
         self.NL2 = self.NL1.copy()
-        self.NL1 = self._calc_right_hand_side(self.soln, self.t)
+        self.NL1 = self.RHS.copy()
 
         self.soln = (self.L3*self.soln + self.c3*self.dt*self.NL1 \
                     + self.d2*self.dt*self.NL2).copy()
@@ -466,10 +486,10 @@ class model(doublyPeriodicModel):
 
     #_init_time_stepper = _init_time_stepper_forward_euler
     #_step_forward = _step_forward_forward_euler
-    #_init_time_stepper = _init_time_stepper_RKW3
-    #_step_forward = _step_forward_RKW3
+    _init_time_stepper = _init_time_stepper_RKW3
+    _step_forward = _step_forward_RKW3
     #_init_time_stepper = _init_time_stepper_RK4
     #_step_forward = _step_forward_RK4
-    _init_time_stepper = _init_time_stepper_ETDRK4
-    _step_forward = _step_forward_ETDRK4
+    #_init_time_stepper = _init_time_stepper_ETDRK4
+    #_step_forward = _step_forward_ETDRK4
 
