@@ -1,6 +1,6 @@
-import time
 import numpy as np
 from numpy import pi, sin, cos, sqrt, exp
+import time
 import pyfftw
 pyfftw.interfaces.cache.enable() 
 
@@ -11,30 +11,22 @@ except ImportError:
     pass
 
 class doublyPeriodicModel(object):
-
-    # Initialize  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def __init__(
             self,
             physics = None,
+            nVars = 1,
+            realVars = False,
             # Grid parameters
             nx = 256,
             Lx = 2.0*pi, 
             ny = None,
             Ly = None, 
-            nVars = 1,
-            realVars = False,
-            # Timestepping parameters
+            # Solver parameters
             t  = 0.0,  
             dt = 1.0e-2,                   # Fixed numerical time-step.
             step = 0,                      # Initial or current step of the model
             timeStepper = "forwardEuler",  # Time-stepping method
-            # Computational parameters
             nThreads = 1,                  # Number of threads for FFTW
-            dealias  = True,
-            # Simple I/O
-            dnLog     = 1e2,
-            dnSave    = 1e2,               # Interval to save (in timesteps)
-            savingData = False, 
         ):
 
         # For convenience, use a default square, uniformly-gridded domain when 
@@ -55,10 +47,6 @@ class doublyPeriodicModel(object):
         self.step = step
         self.timeStepper = timeStepper
         self.nThreads = nThreads
-        self.dealias = dealias
-        self.savingData = savingData
-        self.dnLog = dnLog
-        self.dnSave = dnSave
 
         # Set time-stepping method attributes for the model
         self._describe_time_stepper = getattr(self, 

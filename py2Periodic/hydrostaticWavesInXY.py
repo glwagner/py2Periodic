@@ -6,32 +6,24 @@ import time
 class model(doublyPeriodicModel):
     def __init__(
             self,
-            # Parameters general to the doubly-periodic model - - - - - - - - -  
-            ## Grid parameters
+            name = "hydrostaticWaveEquationExample", 
+            # Grid parameters
             nx = 128,
             Lx = 2.0*pi,
             ny = None,
             Ly = None, 
-            ## Solver parameters
+            # Solver parameters
             t  = 0.0,  
             dt = 1.0e-1,                    # Numerical timestep
             step = 0, 
             timeStepper = "ETDRK4",         # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
-            ## Printing and saving
-            dnSave = 1e2,                   # Interval to save (in timesteps)
-            makingPlots = False,
             #
-            # Parameters specific to two-dimensional turbulence - - - - - - - - 
-            name = "hydrostaticWaveEquationExample", 
-            nVars = 2, 
-            realVars = False,
-            ## Parameters! 
-            ### Rotating and gravitating Earth parameters
+            # Hydrostatic Wave Eqn params: rotating and gravitating Earth 
             f0 = 1.0, 
             sigma = sqrt(5),
             kappa = 8.0, 
-            ### Friction: 4th order hyperviscosity
+            # Friction: 4th order hyperviscosity
             waveVisc = 1.0e-8,
             meanVisc = 1.0e-8,
             waveViscOrder = 4.0,
@@ -42,21 +34,19 @@ class model(doublyPeriodicModel):
         doublyPeriodicModel.__init__(self, 
             physics = "two-dimensional turbulence and the" + \
                             " hydrostatic wave equation",
+            nVars = 2, 
+            realVars = False,
             # Grid parameters
             nx = nx,
             ny = ny,
             Lx = Lx,
             Ly = Ly,
-            nVars = nVars, 
-            realVars = realVars,
             # Solver parameters
             t  = t,   
             dt = dt,                        # Numerical timestep
             step = step,                    # Current step
             timeStepper = timeStepper,      # Time-stepping method
             nThreads = nThreads,            # Number of threads for FFTW
-            # Simple I/O
-            dnSave    = dnSave,             # Interval to save (in timesteps)
         )
 
         # Physical parameters specific to the Physical Problem
@@ -124,7 +114,7 @@ class model(doublyPeriodicModel):
             + self.invE*1j*self.alpha*self.sigma*waveDispersion
        
     def _calc_right_hand_side(self, soln, t):
-        """ Calculate the nonlinear right hand side of the equation """
+        """ Calculate the nonlinear right hand side of PDE """
         # Views for clarity:
         qh = soln[:, :, 0]
         Ah = soln[:, :, 1]
@@ -133,8 +123,8 @@ class model(doublyPeriodicModel):
         self.q = np.real(self.ifft2(qh))
 
         # Derivatives of A in physical space
-        self.Ax = self.ifft2(self.jKK*Ah)
-        self.Ay = self.ifft2(self.jLL*Ah)
+        self.Ax  =  self.ifft2(self.jKK*Ah)
+        self.Ay  =  self.ifft2(self.jLL*Ah)
         self.Axx = -self.ifft2(self.KK**2.0*Ah)
         self.Ayy = -self.ifft2(self.LL**2.0*Ah)
         self.Axy = -self.ifft2(self.LL*self.KK*Ah)
@@ -142,12 +132,12 @@ class model(doublyPeriodicModel):
                         self.KK**2.0 + self.LL**2.0 \
                         + (4.0+3.0*self.alpha)*self.kappa**2.0 ))
 
-        # Calculate self.ph
-        self.ph = -qh / self.divideSafeKay2
+        # Calculate streamfunction
+        self.psih = -qh / self.divideSafeKay2
 
         # Mean velocities
-        self.U = np.real(self.ifft2(-self.jLL*self.ph))
-        self.V = np.real(self.ifft2( self.jKK*self.ph))
+        self.U = np.real(self.ifft2(-self.jLL*self.psih))
+        self.V = np.real(self.ifft2( self.jKK*self.psih))
 
         # Views to clarify calculation of A's RHS
         U = self.U
@@ -210,7 +200,7 @@ class model(doublyPeriodicModel):
 
         # Diagnostic variables  - - - - - - - - - - - - - - - - - - - - - - - -  
         ## Streamfunction transform
-        self.ph = np.zeros(self.specVarShape, np.dtype('complex128'))
+        self.psih = np.zeros(self.specVarShape, np.dtype('complex128'))
     
         ## Mean and wave velocity components 
         self.U = np.zeros(self.physVarShape, np.dtype('float64'))
@@ -234,14 +224,14 @@ class model(doublyPeriodicModel):
         Ah = self.soln[:, :, 1]
         
         # Streamfunction
-        self.ph = - qh / self.divideSafeKay2 
+        self.psih = - qh / self.divideSafeKay2 
 
         # Physical-space PV and velocity components
         self.A = self.ifft2(Ah)
         self.q = np.real(self.ifft2(qh))
 
-        self.U = -np.real(self.ifft2(self.jLL*self.ph))
-        self.V =  np.real(self.ifft2(self.jKK*self.ph))
+        self.U = -np.real(self.ifft2(self.jLL*self.psih))
+        self.V =  np.real(self.ifft2(self.jKK*self.psih))
 
         # Wave velocities
         uh = -1.0/(self.alpha*self.f0)*( \

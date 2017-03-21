@@ -6,27 +6,20 @@ import time
 class model(doublyPeriodicModel):
     def __init__(
             self,
-            # Parameters general to the doubly-periodic model - - - - - - - - -  
-            ## Grid parameters
+            name = "twoDimensionalTurbulenceExample", 
+            # Grid parameters
             nx = 128,
             Lx = 2.0*pi,
             ny = None,
             Ly = None, 
-            ## Solver parameters
+            # Solver parameters
             t  = 0.0,  
             dt = 1.0e-2,                    # Numerical timestep
             step = 0, 
             timeStepper = "forwardEuler",   # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
-            ## Printing and saving
-            dnSave = 1e2,                   # Interval to save (in timesteps)
-            makingPlots = False,
-            #
-            # Parameters specific to two-dimensional turbulence - - - - - - - - 
-            name = "twoDimensionlTurbulenceExample", 
-            nVars = 1, 
-            realVars = True,
-            ## Physical parameters: arbitrary-order viscosity
+            # 
+            # Two-dimensional turbulence parameters: arbitrary-order viscosity
             visc = 1.0e-4,
             viscOrder = 2.0,
         ):
@@ -34,21 +27,19 @@ class model(doublyPeriodicModel):
         # Initialize super-class.
         doublyPeriodicModel.__init__(self, 
             physics = "two-dimensional turbulence",
+            nVars = 1, 
+            realVars = True,
             # Grid parameters
             nx = nx,
             ny = ny,
             Lx = Lx,
             Ly = Ly,
-            nVars = nVars, 
-            realVars = realVars,
             # Solver parameters
             t  = t,   
             dt = dt,                        # Numerical timestep
             step = step,                    # Current step
             timeStepper = timeStepper,      # Time-stepping method
             nThreads = nThreads,            # Number of threads for FFTW
-            # Simple I/O
-            dnSave    = dnSave,             # Interval to save (in timesteps)
         )
 
         # Parameters specific to the Physical Problem
@@ -84,14 +75,15 @@ class model(doublyPeriodicModel):
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of the equation """
         # View for clarity:
-        qh = self.soln[:, :, 0]
+        qh = soln[:, :, 0]
 
         # Streamfunction
-        self.ph = - qh / self.divideSafeKay2 
+        self.psih = - qh / self.divideSafeKay2 
 
+        # Vorticity and velocity
         self.q = np.real(self.ifft2(qh))
-        self.u = -np.real(self.ifft2(self.jLL*self.ph))
-        self.v =  np.real(self.ifft2(self.jKK*self.ph))
+        self.u = -np.real(self.ifft2(self.jLL*self.psih))
+        self.v =  np.real(self.ifft2(self.jKK*self.psih))
 
         self.RHS[:, :, 0] = -self.jKK*self.fft2(self.u*self.q) \
                             - self.jLL*self.fft2(self.v*self.q) 
@@ -104,17 +96,13 @@ class model(doublyPeriodicModel):
         self.divideSafeKay2 = self.KK**2.0 + self.LL**2.0
         self.divideSafeKay2[0, 0] = float('Inf')
 
-        # Prognostic variables
-        ## Vorticity and wave-field amplitude
-        self.q = np.zeros(self.physVarShape, np.dtype('float64'))
+        # Streamfunction
+        self.psih = np.zeros(self.physVarShape, np.dtype('complex128'))
 
-        # Diagnostic variables
-        ## Streamfunction transform
-        self.ph = np.zeros(self.physVarShape, np.dtype('complex128'))
-    
-        ## Mean and wave velocity components 
-        self.u = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.v = np.zeros(self.physVarShape, np.dtype('float64'))
+        # Vorticity and velocity
+        self.q  = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.u  = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.v  = np.zeros(self.physVarShape, np.dtype('float64'))
             
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
@@ -122,11 +110,12 @@ class model(doublyPeriodicModel):
         qh = self.soln[:, :, 0]
 
         # Streamfunction
-        self.ph = - qh / self.divideSafeKay2 
+        self.psih = - qh / self.divideSafeKay2 
 
+        # Vorticity and velocity
         self.q = np.real(self.ifft2(qh))
-        self.u = -np.real(self.ifft2(self.jLL*self.ph))
-        self.v =  np.real(self.ifft2(self.jKK*self.ph))
+        self.u = -np.real(self.ifft2(self.jLL*self.psih))
+        self.v =  np.real(self.ifft2(self.jKK*self.psih))
 
     def plot_current_state(self):
         """ Create a simple plot that shows the state of the model."""
