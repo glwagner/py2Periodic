@@ -3,7 +3,7 @@
 This code solves several PDEs on doubly-periodic two-dimensional domains, 
 and provides a framework for generating solvers with new physics.
 
-This is achieved by introducing a `base-class, sub-class' relationship between
+This is achieved by introducing a "base-class, sub-class" relationship between
 the numerical and physical aspects of the solver. The physics-agnostic attributes 
 of the base-class, described in `doublyPeriodic.py`, point to physical and 
 spectral grids, time-stepping routine and parameters, and the 2D Fourier 
