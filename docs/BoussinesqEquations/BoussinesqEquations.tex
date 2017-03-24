@@ -1,0 +1,280 @@
+\documentclass[12pt, oneside]{article}
+
+\usepackage{float}
+\usepackage{lineno}
+\usepackage{color, amssymb, amsmath, amsthm, verbatim, wasysym}
+\usepackage{natbib}
+\usepackage{epsfig}
+\usepackage[mathscr]{eucal}
+\usepackage{mathrsfs}
+\usepackage{appendix}
+\raggedbottom
+\usepackage[left=0.8in,right=0.8in,top=0.8in,bottom=0.9in,centering]{geometry}      
+
+% Uncomment to show references.
+%\usepackage[notcite,notref]{showkeys}
+
+% To make really wide hats that cover everything:
+\usepackage{scalerel}
+\usepackage{stackengine}
+\setstackEOL{\#}
+\stackMath
+\def\hatgap{1pt}
+\def\subdown{-0.2pt}
+\newcommand\reallywidehat[2][]{%
+\renewcommand\stackalignment{l}%
+\stackon[\hatgap]{#2}{%
+\stretchto{%
+    \scalerel*[\widthof{$#2$}]{\kern-.6pt\bigwedge\kern-.6pt}%
+    {\rule[-\textheight/2]{1ex}{\textheight}}%WIDTH-LIMITED BIG WEDGE
+}{0.6ex}% THIS SQUEEZES THE WEDGE TO 0.5ex HEIGHT
+_{\smash{\belowbaseline[\subdown]{\scriptstyle#1}}}%
+}}
+
+% For a 'strut' that creates space above underbraces
+\newcommand*\mystrut[1]{\vrule width0pt height0pt depth#1\relax}
+
+% Punctuation
+\newcommand{\com}{\, ,}
+\newcommand{\per}{\, .}
+
+% A nice 'definition'
+\newcommand{\defn}{\ensuremath{\stackrel{\mathrm{def}}{=}}}
+
+% Use \bar to over line solo symbols
+\newcommand{\av}[1]{\left \langle{#1} \right \rangle}
+\newcommand{\avbg}[1]{\overline{#1}}
+\newcommand{\avbgg}[1]{\overline{#1}}
+\newcommand{\hav}[1]{\widehat{#1}}
+
+% Begin and end equations
+\newcommand{\beq}{\begin{equation}}
+\newcommand{\eeq}{\end{equation}}
+
+% Vector calculus operators
+\newcommand{\p}{\partial}
+\newcommand{\bnabla}{\boldsymbol \nabla}
+\newcommand{\pnabla}{\boldsymbol \nabla_{\! \! \perp}}
+\newcommand{\hnabla}{\bnabla_{\! \! h}}
+\newcommand{\bnablad}{\bnabla_{\! \! \alpha}}
+\newcommand{\bcdot}{\boldsymbol \cdot}
+\newcommand{\hlap}{\triangle_h}
+\newcommand{\lap}{\triangle}
+\newcommand{\grad}{\bnabla}
+\newcommand{\curl}{\bnabla \!\times\!}
+\newcommand{\diver}{\bnabla \bcdot }
+\newcommand{\cross}{\times}
+
+% Bold symbolds
+\newcommand{\bu}{\boldsymbol u}
+\newcommand{\buh}{\boldsymbol u_h}
+\newcommand{\bx}{\boldsymbol x}
+\newcommand{\ba}{\boldsymbol{a}}
+\newcommand{\bk}{\boldsymbol{k}}
+\newcommand{\bh}{\boldsymbol{h}}
+\newcommand{\bm}{\boldsymbol{m}}
+\newcommand{\bn}{\boldsymbol{\hat n}}
+\newcommand{\bxh}{\hspace{0.1em} \boldsymbol{\hat x}}
+\newcommand{\byh}{\hspace{0.1em}\boldsymbol{\hat y}}
+\newcommand{\bzh}{\hspace{0.1em}\boldsymbol{\hat z}}
+\newcommand{\bnh}{\hspace{0.1em}\boldsymbol{\hat n}}
+\newcommand{\bomega}{\boldsymbol \omega}
+\newcommand{\bOmega}{\boldsymbol \Omega}
+\newcommand{\bxi}{\ensuremath {\boldsymbol {\xi}}}
+\newcommand{\bXi}{\ensuremath {\boldsymbol {\Xi}}}
+\newcommand{\bU}{\boldsymbol{U}}
+\newcommand{\bX}{\boldsymbol{X}}
+
+% Greek abbrevs
+\newcommand{\ep}{\epsilon}
+\newcommand{\om}{\omega}
+\newcommand{\kap}{\kappa}
+
+% Roman characters
+\newcommand{\ee}{\mathrm{e}}
+\newcommand{\ii}{\mathrm{i}}
+\newcommand{\cc}{\mathrm{cc}}
+\newcommand{\dd}{{\rm d}}
+\newcommand{\id}{{\, \rm d}}
+\newcommand{\DD}{{\rm D}}
+\newcommand{\J}{\mathrm{J}}
+\renewcommand{\L}{\mathrm{L}}
+
+% Non-dimensional numbers 
+\newcommand{\Ri}{Ri}
+\newcommand{\Ro}{Ro}
+\newcommand{\Bu}{Bu}
+\newcommand{\Pe}{Pe}
+
+% Material derivative
+\newcommand{\Dt}[1]{\mathrm{D}_t #1}
+
+% Small in-line fractions
+\newcommand{\half}{\tfrac{1}{2}}
+
+% Bold 'F' for 'forcing'
+\newcommand{\bff}{\boldsymbol{F}}
+\newcommand{\fh}{\breve f}
+
+% Dissipation operator
+\newcommand{\friction}{\mathrm{F}}
+\newcommand{\mixing}{\mathrm{M}}
+
+\newcommand{\mode}{\phi}
+
+\begin{document}
+
+\title{\vspace{-4ex} 2D reductions of the rotating Boussinesq equations}
+\author{Greg}
+\date{} \maketitle \vspace{-4ex}
+
+\section{Preliminaries}
+
+The rotating Boussinesq equations are
+\begin{align}
+\Dt{\bu} + 2 \bOmega \times \bu - b \bzh + \bnabla p &= \friction \bu \com \label{mom} \\
+\Dt{b} + w N^2 &= \mixing b \com \label{buoy} \\
+\bnabla \bcdot \bu &= 0 \com \label{cont}
+\end{align}
+where $\Dt \defn \p_t + \bu \bcdot \bnabla$ is the material derivative, 
+\beq
+2 \bOmega \defn \underbrace{2 \Omega \cos \phi}_{\defn \fh} \byh + \underbrace{2 \Omega \sin \phi}_{\defn f} \bzh \com
+\eeq
+is the axis around which the Earth rotates, and the $\friction$ and $\mixing$ are operators that represent dissipative frictional processes and diffusive mixing processes, respectively. If dissipation and diffusion are due to isotropic molecular processes, then $\friction = \nu \lap$ and $\mixing = \kap \lap$, where $\lap = \p_x^2 + \p_y^2 + \p_z^2$ is the three-dimensional Laplacian. 
+
+\section{Boussinesq equations non-linearized around two-dimensional flow in $x,z$}
+
+The Boussinesq equations with $\p_y = 0$ and non-linearized around the two-dimensional flow 
+\beq
+\bU = U(z, t) \bxh + V(x, z, t) \byh
+\eeq
+become
+\begin{align}
+\Dt{u} + w \left ( \fh + U_z \right ) - f v  + p_x &= \friction u \com \\
+\Dt{v} + u \left ( f + V_x \right ) + w V_z  &= \friction v \com \\
+\Dt{w} - \fh u - b + p_z &= \friction w \com \\
+\Dt{b} + w N^2 &= \mixing b \com \\
+\bnabla \bcdot \bu &= 0 \com
+\end{align}
+where the material derivative is now
+\beq
+\Dt \defn \p_t + \left ( u + U \right ) \p_x + w \p_z \per
+\eeq
+In addition to the terms describing advection by the `mean' background flow, there are three qualitatively new refraction terms $w U_z$, $w V_z$, and $u V_x$ that appear in the momentum equations.
+
+\section{Hydrostatic Boussinesq equations linearized around two-dimensional flow in $x,y$}
+
+The traditional hydrostatic Boussinesq equations linearized around a two-dimensional mean flow are formed by using the hydrostatic approximation in the vertical component of \eqref{mom}, assuming that $\fh = 0$ and constant $f = f_0$, and using the map $\bu \mapsto \bU(x, y, t) + \bu(x, y, z, t)$, so that \eqref{mom}--\eqref{cont} become
+\begin{align}
+u_t + \bU \bcdot \bnabla u + \bu \bcdot \bnabla U - f_0 v + p_x &= \friction_u u \com \label{xmomLin} \\
+v_t + \bU \bcdot \bnabla v + \bu \bcdot \bnabla V + f_0 u + p_y &= \friction_u v \com \label{ymomLin} \\
+p_z &= b \com \label{zmomLin} \\
+b_t + \bU \bcdot \bnabla b + w N^2 &= \mixing b \com \label{buoyLin} \\
+u_x + v_y + w_z &= 0 \label{contLin} \per
+\end{align}
+A natural model for the two-dimensional flow
+\beq
+\bU(x,y,t) = - \psi_y \bxh + \psi_x \byh
+\label{streamfunctionDef}
+\eeq
+is that is solves the two-dimensional vorticity equation,
+\beq
+\hlap \psi_t + \J \left ( \psi , \hlap \psi \right ) = \friction_\psi \left ( \hlap \psi \right ) \com
+\label{vorticity}
+\eeq
+Equations \eqref{xmomLin}--\eqref{contLin} describe the advection and refraction of waves by a two-dimensional flow with $\bU_{\! z} = \psi_z = 0$ and thus no buoyancy field.  The linearization neglects the complications of nonlinear wave dynamics and permits a two-dimensionalization of \eqref{xmomLin}--\eqref{contLin} by projection onto vertical modes. \eqref{xmomLin}--\eqref{contLin} do not have a cascade to small-scales, in general, and therefore permit inviscid numerical solutions.
+
+\subsection{The vertical mode decomposition}
+\label{verticalModeProjection}
+
+We restrict attention to waves with simple vertical structure by projecting \eqref{xmomLin}--\eqref{contLin} onto the hydrostatic vertical modes $\mode_n(z)$ that solve the eigenproblem
+\beq
+\frac{f_0^2}{N^2} \mode_{nzz} + \lambda_n^{-2} \mode_n = 0 \com \qquad \text{with} \qquad \mode_n = 0 \quad \text{at} \quad z = -H, 0 \per
+\label{modalEigenproblem}
+\eeq
+Note that the derivative $h_{nz}$ satisfies $h_{nz} = - \lambda_n^2 \L h_{nz}$.  The modal amplitudes of the independent variables $A, \bu, b, p$ are defined by their weighted projection onto $\mode_n$ or its derivative $\mode_{nz}$, with
+\beq
+\Phi_n \defn \int_{-H}^0 \Phi \, \mode_{nz} \id z  \qquad \text{for} \qquad \Phi = \left (A, u, v, p \right ) \com
+\label{modezDef}
+\eeq
+and
+\beq
+b_n \defn \int_{-H}^0 b \, \mode_n \id z  \qquad \text{and} \qquad w_n \defn \int_{-H}^0 \frac{N^2}{\lambda_n^2 f_0^2} \, w \, \mode_n \id z \per
+\eeq 
+We assume $A, \bu, b$, and $p$ satisfy free-slip, rigid-lid homogeneous boundary conditions with $A_z = u_z = v_z = p_z = 0$ and $w= b = 0$ at $z = -H, 0$.
+ 
+The linearized Boussinesq equations \eqref{xmomLin}--\eqref{contLin} are processed in similar fashion.  We project \eqref{xmomLin} and \eqref{ymomLin} onto $\mode_{nz}$. We assume we can write, approximately
+\beq
+\friction_{nu} (u_n) \approx \int_{-H}^0 \phi_{nz} \friction_u(u) \id z \per
+\label{approximateFriction}
+\eeq
+This approximation does not hold for all linear operators $\friction_u$. Notice that if $\friction = \nu \lap$, then
+\beq
+\int_{-H}^0 \phi_{nz} \nu \lap u \id z = \nu \hlap u_n + \frac{\kappa_n^2}{f_0^2} \int_{-H}^0 N^2 \phi_n u_{z} \id z \com
+\eeq
+and different modes are therefore coupled by the rightmost term. When $N$ is constant, however, this becomes 
+\beq
+\int_{-H}^0 \phi_{nz} \nu \lap u \id z = \nu \hlap u_n + \nu \left ( \tfrac{n \pi}{H} \right )^2 u_n \com
+\eeq
+and the modes separate. With the notation in \eqref{approximateFriction}, the horizontal momentum equations 
+\begin{align}
+u_{nt} - f_0 v_n + p_{nx} &= - \bU \bcdot \bnabla u_n - \bu_n \bcdot \bnabla U + \friction_{nu} u_n \com \label{modeWisexmom} \\
+v_{nt} + f_0 u_n + p_{ny} &= - \bU \bcdot \bnabla v_n - \bu_n \bcdot \bnabla V + \friction_{nu} v_n\per \label{modeWiseymom}
+\end{align}
+We next combine \eqref{zmomLin}--\eqref{contLin} by projecting \eqref{contLin} onto $\mode_{nz}$, integrating by parts once, and using \eqref{modalEigenproblem} to yield $w_n = - u_{nx} - v_{ny}$.  We then use $p_z = b$ to combine \eqref{zmomLin} and \eqref{buoyLin} and project the result onto $\mode_n$. Similar to \eqref{approximateFriction}, we use the notation 
+\beq
+\mixing_n p_n \approx - \int_{-H}^0 \phi_n \mixing p_z \id z \per
+\eeq
+Similar to \eqref{approximateFriction}, this is not true when $N$ is not constant. When $N$ is constant we have $\mixing_n p_n = \kappa \hlap p_n + \kappa \left ( \tfrac{n \pi}{H} \right )^2 p_n$. Finally, integrating by parts and using $w_n = - u_{nx} - v_{ny}$ transforms \eqref{buoyLin} into
+\beq
+p_{nt} + \left ( \tfrac{f_0}{\kappa_n} \right )^{\! 2} \left ( u_{nx} + v_{ny} \right ) = - \bU \bcdot \bnabla p_n + \mixing_n p_n \per
+\label{modeWisebuoy}
+\eeq
+The three equations \eqref{modeWisexmom}--\eqref{modeWisebuoy} describe the evolution of hydrostatic, vertical mode-$n$ waves in a two-dimensional flow $\bU = U \bxh + V \byh$ with $\bU_{\! z} = 0$.  The parameter $f_0 / \kappa_n$ is the phase speed of a linear wave with mode-$n$ vertical structure.  
+
+\appendix
+
+\section{`Wave operator form' of the Boussinesq equations}
+\label{waveOperatorForm}
+
+The component-wise rotating inviscid Boussinesq equations are
+\begin{align}
+u_t - f v + \fh w + p_x &= - \bu \bcdot \bnabla u \com \label{xmom} \\
+v_t + f u + p_y &= - \bu \bcdot \bnabla v \com \label{ymom} \\
+w_t - \fh u - b + p_z &= - \bu \bcdot \bnabla w \com \label{zmom} \\
+b_t + w N^2 &= - \bu \bcdot \bnabla b \com \label{buoyComp} \\
+\bnabla \bcdot \bu &= 0 \label{contComp} \per
+\end{align}
+We first form the `oscillation equation' with the combination $\p_t \eqref{zmom} + \eqref{buoyComp}$:
+\beq
+\left ( \p_t^2 + N^2 \right ) w - \fh u_t + p_{zt} = - \p_t \left ( \bu \bcdot \bnabla w \right ) - \bu \bcdot \bnabla b \per 
+\label{oscillation}
+\eeq
+The 'divergence equation' follows from $- \p_x \eqref{xmom}- \p_y \eqref{ymom}$ and using $u_x + v_y = - w_z$, 
+\beq
+w_{zt} + f \omega - u f_y  -  \fh w_x - \hlap p =  \p_x \big ( \bu \bcdot \bnabla u \big ) + \p_y \left ( \bu \bcdot \bnabla v \right ) \per
+\label{divergence}
+\eeq
+The vertical vorticity equation is obtained from $\p_x \eqref{ymom} - \p_y \eqref{xmom}$, 
+\beq
+\omega_t - f w_z + v f_y = - \pnabla \bcdot \left ( \bu \bcdot \bnabla \right ) \bu \per
+\label{vorticity}
+\eeq
+Yes! In the penultimate step we calculate $\p_z \p_t \eqref{divergence} - f \p_z \eqref{vorticity}$, yielding
+\beq
+\Big [  \left ( \p_t^2 + f^2 \right ) \p_z^2 - \fh \p_x \p_z \p_t \Big ] w - \hlap p_{zt} = f_y \p_z \left ( u_t + f v \right ) + \p_z \left ( \p_t \bnabla + f \pnabla \right ) \bcdot \left ( \bu \bcdot \bnabla \right ) \buh \per
+\label{divVort}
+\eeq
+Finally, the combination $\hlap \eqref{oscillation} + \eqref{divVort}$ yields the wave operator form,
+\beq
+\begin{split}
+\Big [&  \lap \p_t^2 + f^2 \p_z + N^2 \hlap \Big ] w = \fh \p_t \left ( \hlap u + w_{xz} \right ) + u_t \fh_{yy} + 2 u_{yt} \fh_{y}  + f_y \p_z \left ( u_t + f v \right ) \\
+& \qquad  + \p_z \left ( \p_t \bnabla + f \pnabla \right ) \bcdot \left ( \bu \bcdot \bnabla \right ) \bu - \hlap \left ( \bu \bcdot \bnabla b \right ) - \lap \p_t \left ( \bu \bcdot \bnabla w \right ) \per
+\end{split}
+\label{waveOperatorEqn}
+\eeq
+
+\bibliographystyle{jfm}
+\bibliography{refs}
+
+\end{document}

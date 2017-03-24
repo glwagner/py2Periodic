@@ -205,8 +205,8 @@ class model(doublyPeriodicModel):
         ## Mean and wave velocity components 
         self.U = np.zeros(self.physVarShape, np.dtype('float64'))
         self.V = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.uu = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.vv = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.u = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.v = np.zeros(self.physVarShape, np.dtype('float64'))
 
         ## Derivatives of wave field amplitude
         self.Ax = np.zeros(self.physVarShape, np.dtype('complex128'))
@@ -239,9 +239,9 @@ class model(doublyPeriodicModel):
         vh = -1.0/(self.alpha*self.f0)*( \
             1j*self.sigma*self.jLL*Ah + self.f0*self.jKK*Ah )
 
-        self.uu = np.real( self.ifft2(uh) + np.conj(self.ifft2(uh)) )
-        self.vv = np.real( self.ifft2(vh) + np.conj(self.ifft2(vh)) )
-        self.sp = sqrt(self.uu**2.0 + self.vv**2.0)
+        self.u = np.real( self.ifft2(uh) + np.conj(self.ifft2(uh)) )
+        self.v = np.real( self.ifft2(vh) + np.conj(self.ifft2(vh)) )
+        self.sp = sqrt(self.u**2.0 + self.v**2.0)
 
     def set_q(self, q):
         """ Set model vorticity """
@@ -272,7 +272,7 @@ class model(doublyPeriodicModel):
         plt.axis('square')
 
         ax2 = plt.subplot(122)
-        plt.pcolormesh(self.xx, self.yy, sqrt(self.uu**2.0+self.vv**2.0))
+        plt.pcolormesh(self.xx, self.yy, sqrt(self.u**2.0+self.v**2.0))
         plt.axis('square')
 
     def describe_model(self):

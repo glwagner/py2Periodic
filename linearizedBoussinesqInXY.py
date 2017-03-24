@@ -6,7 +6,7 @@ import time
 class model(doublyPeriodicModel):
     def __init__(
             self,
-            name = "linearizedNIWEquationExample", 
+            name = "linearizedBoussinesqEquationsExample", 
             # Grid parameters
             nx = 128,
             Lx = 2.0*pi,
@@ -14,27 +14,29 @@ class model(doublyPeriodicModel):
             Ly = None, 
             # Solver parameters
             t  = 0.0,  
-            dt = 1.0e-1,                    # Numerical timestep
+            dt = 1.0e-2,                    # Numerical timestep
             step = 0, 
-            timeStepper = "ETDRK4",         # Time-stepping method
+            timeStepper = "RK4",            # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
             #
             # Near-inertial equation params: rotating and gravitating Earth 
             f0 = 1.0, 
-            kappa = 64.0, 
+            kappa = 4.0, 
             # Friction: 4th order hyperviscosity
             waveVisc = 1.0e-4,
             waveViscOrder = 2.0,
+            waveDiff = 1.0e-4,
+            waveDiffOrder = 2.0,
             meanVisc = 1.0e-4,
             meanViscOrder = 2.0,
         ):
 
         # Initialize super-class.
         doublyPeriodicModel.__init__(self, 
-            physics = "two-dimensional turbulence and the" + \
-                            " near-inertial wave equation",
-            nVars = 2, 
-            realVars = False,
+            physics = "single-mode hydrostatic Boussinesq equations" + \
+                " linearized around two-dimensional turbulence",
+            nVars = 4, 
+            realVars = True,
             # Grid parameters
             nx = nx,
             ny = ny,
@@ -53,9 +55,11 @@ class model(doublyPeriodicModel):
         self.f0 = f0
         self.kappa = kappa
         self.meanVisc = meanVisc
-        self.waveVisc = waveVisc
         self.meanViscOrder = meanViscOrder
+        self.waveVisc = waveVisc
         self.waveViscOrder = waveViscOrder
+        self.waveDiff = waveDiff
+        self.waveDiffOrder = waveDiffOrder
             
         # Initial routines
         ## Initialize variables and parameters specific to this problem
@@ -63,78 +67,106 @@ class model(doublyPeriodicModel):
         self._set_linear_coeff()
         self._init_time_stepper()
 
-        # Default initial condition.
-        soln = np.zeros_like(self.soln)
-
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/20
         q0 = 0.1*self.f0 * exp( \
             - ( (self.XX-self.Lx/2.0)**2.0 + (self.YY-self.Ly/2.0)**2.0 ) \
             / (2*rVortex**2.0) \
                        )
-        soln[:, :, 0] = q0
 
         # Default wave initial condition: uniform velocity.
-        soln[:, :, 1] = np.ones(self.physVarShape)
-        self.set_physical_soln(soln)
+        self.set_planeWave_uvp(4)
+        self.set_q(q0)
         self.update_state_variables()
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_physics(self):
         print("""
-            This model solves the linearized near-inertial wave equation, also \n
-            known as the YBJ equation, and the \n
-            two-dimensional vorticity equation simulataneously. \n
-            Arbitrary-order hyperdissipation can be specified for both. \n
-            There are two prognostic variables: wave amplitude, and mean vorticity.
+            This model solves the Boussinesq equations linearized around \n
+            a two-dimensional barotropic flow for a single vertical mode. \n
+            No viscosity or dissipation can be specified, since this is not \n
+            required to stabilize the wave-field solutions. Arbitrary-order \n
+            hyperdissipation can be specified for the two-dimensional flow. \n
+            There are four prognostic variables: the two-dimensional flow, 
+            the two horizontal velocity components u and v, and the pressure 
+            field. The chosen vertical mode is represented by the single \n
+            parameter kappa, which is the square root of the eigenvalue \n
+            from the vertical mode eigenproblem.
         """)
 
     def _set_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
-        # Two-dimensional turbulent part.
+        # Two-dimensional turbulent viscosity.
         self.linearCoeff[:, :, 0] = self.meanVisc \
             * (self.KK**2.0 + self.LL**2.0)**(self.meanViscOrder/2.0)
 
-        waveDissipation = self.waveVisc \
+        self.linearCoeff[:, :, 1] = self.waveVisc \
             * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
 
-        waveDispersion = 1j*self.f0/(2.0*self.kappa**2.0) \
-                            *(self.KK**2.0+self.LL**2.0)
+        self.linearCoeff[:, :, 2] = self.waveVisc \
+            * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
 
-        self.linearCoeff[:, :, 1] = waveDissipation + waveDispersion
-       
+        self.linearCoeff[:, :, 3] = self.waveDiff \
+            * (self.KK**2.0 + self.LL**2.0)**(self.waveDiffOrder/2.0)
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of PDE """
         # Views for clarity:
         qh = soln[:, :, 0]
-        Ah = soln[:, :, 1]
+        uh = soln[:, :, 1]
+        vh = soln[:, :, 2]
+        ph = soln[:, :, 3]
 
         # Physical-space things
-        self.q = np.real(self.ifft2(qh))
-        self.A  =  self.ifft2(Ah)
+        self.q = self.ifft2(qh)
+        self.u = self.ifft2(uh)
+        self.v = self.ifft2(vh)
+        self.p = self.ifft2(ph)
 
         # Calculate streamfunction
         self.psih = -qh / self.divideSafeKay2
 
         # Mean velocities
-        self.U = np.real(self.ifft2(-self.jLL*self.psih))
-        self.V = np.real(self.ifft2( self.jKK*self.psih))
+        self.U = -self.ifft2(self.jLL*self.psih)
+        self.V =  self.ifft2(self.jKK*self.psih)
+
+        # Mean derivatives
+        self.Ux =  self.ifft2(self.LL*self.KK*self.psih)
+        self.Uy =  self.ifft2(self.LL**2.0*self.psih)
+        self.Vx = -self.ifft2(self.KK**2.0*self.psih)
 
         # Views to clarify calculation of A's RHS
         U = self.U
         V = self.V
         q = self.q
-        A = self.A
-        
-        # Right hand side for q
+        u = self.u
+        v = self.v
+        p = self.p
+        Ux = self.Ux                
+        Uy = self.Uy
+        Vx = self.Vx        
+
+        # Linear right-side terms
+        self.RHS[:, :, 1] =  self.f0*vh - self.jKK*ph
+        self.RHS[:, :, 2] = -self.f0*uh - self.jLL*ph
+        self.RHS[:, :, 3] = -self.cn**2.0 * (self.jKK*uh + self.jLL*vh)
+    
+        # Nonlinear right hand side for q
         self.RHS[:, :, 0] = -self.jKK*self.fft2(U*q) - self.jLL*self.fft2(V*q) 
                                 
+        # Nonlinear right hand side for u, v, p
+        ## x-momentum
+        self.RHS[:, :, 1] = -self.jKK*self.fft2(U*u) - self.jLL*self.fft2(V*u) \
+                                - self.fft2(u*Ux) - self.fft2(v*Uy)
 
-        # Right hand side for A, in steps:
-        ## 1. Advection term, 
-        self.RHS[:, :, 1] = -self.jKK*self.fft2(U*A) - self.jLL*self.fft2(V*A) \
-                                -1j/2.0*self.fft2(q*A)
+        ## y-momentum. Recall that Vy = -Ux
+        self.RHS[:, :, 2] = -self.jKK*self.fft2(U*v) - self.jLL*self.fft2(V*v) \
+                                - self.fft2(u*Vx) + self.fft2(v*Ux)
+
+        ## Buoyancy / continuity / pressure equation
+        self.RHS[:, :, 3] = -self.jKK*self.fft2(U*p) - self.jLL*self.fft2(V*p) 
+
         self._dealias_RHS()
          
     def _init_parameters(self):
@@ -142,10 +174,15 @@ class model(doublyPeriodicModel):
         # Divide-safe square wavenumber
         self.divideSafeKay2 = self.KK**2.0 + self.LL**2.0
         self.divideSafeKay2[0, 0] = float('Inf')
+
+        # Mode-n wave speed:
+        self.cn = self.f0 / self.kappa
     
         # Vorticity and wave-field amplitude
         self.q = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.A = np.zeros(self.physVarShape, np.dtype('complex128'))
+        self.u = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.v = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.p = np.zeros(self.physVarShape, np.dtype('float64'))
 
         # Streamfunction transform
         self.psih = np.zeros(self.specVarShape, np.dtype('complex128'))
@@ -153,22 +190,30 @@ class model(doublyPeriodicModel):
         # Mean and wave velocity components 
         self.U = np.zeros(self.physVarShape, np.dtype('float64'))
         self.V = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        self.Ux = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.Uy = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.Vx = np.zeros(self.physVarShape, np.dtype('float64'))
         
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
         # Views for clarity:
         qh = self.soln[:, :, 0]
-        Ah = self.soln[:, :, 1]
+        uh = self.soln[:, :, 1]
+        vh = self.soln[:, :, 2]
+        ph = self.soln[:, :, 3]
         
         # Streamfunction
         self.psih = - qh / self.divideSafeKay2 
 
         # Physical-space PV and velocity components
-        self.A = self.ifft2(Ah)
-        self.q = np.real(self.ifft2(qh))
+        self.q = self.ifft2(qh)
+        self.u = self.ifft2(uh)
+        self.v = self.ifft2(vh)
+        self.p = self.ifft2(ph)
 
-        self.U = -np.real(self.ifft2(self.jLL*self.psih))
-        self.V =  np.real(self.ifft2(self.jKK*self.psih))
+        self.U = -self.ifft2(self.jLL*self.psih)
+        self.V =  self.ifft2(self.jKK*self.psih)
 
     def set_q(self, q):
         """ Set model vorticity """
@@ -176,9 +221,31 @@ class model(doublyPeriodicModel):
         self.soln = self._dealias_array(self.soln)
         self.update_state_variables()
 
-    def set_A(self, A):
-        """ Set model wave field amplitude"""
-        self.soln[:, :, 1] = self.fft2(A)
+    def set_planeWave_uvp(self, kNonDim):
+        """ Set linearized Boussinesq to a plane wave in x with speed 1 m/s
+            and normalized wavenumber kNonDim """
+
+        # Dimensional wavenumber and dispersion-relation frequency
+        kDim = 2.0*pi/self.Lx * kNonDim
+        sigma = self.f0*sqrt(1 + kDim/self.kappa)
+
+        # Wave field amplitude. 
+        #alpha = sigma**2.0 / self.f0**2.0 - 1.0
+        a = 1.0 
+
+        # A hydrostatic plane wave. s > sqrt(s^2+f^2)/sqrt(2) when s>f
+        p = a * (sigma**2.0-self.f0**2.0) * cos(kDim*self.XX)
+        u = a * kDim*sigma   * cos(kDim*self.XX)
+        v = a * kDim*self.f0 * sin(kDim*self.XX)
+
+        self.set_uvp(u, v, p)
+
+    def set_uvp(self, u, v, p):
+        """ Set linearized Boussinesq variables """
+        self.soln[:, :, 1] = self.fft2(u)
+        self.soln[:, :, 2] = self.fft2(v)
+        self.soln[:, :, 3] = self.fft2(p)
+
         self.soln = self._dealias_array(self.soln)
         self.update_state_variables()
 
@@ -205,7 +272,7 @@ class model(doublyPeriodicModel):
         plt.axis('square')
 
         ax2 = plt.subplot(122)
-        plt.pcolormesh(self.xx, self.yy, sqrt(self.uu**2.0+self.vv**2.0))
+        plt.pcolormesh(self.xx, self.yy, sqrt(self.u**2.0+self.v**2.0))
         plt.axis('square')
 
     def describe_model(self):

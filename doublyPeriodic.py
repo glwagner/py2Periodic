@@ -177,10 +177,12 @@ class doublyPeriodicModel(object):
         self.soln = self._dealias_array(self.soln)
         self.update_state_variables()
 
-    def run_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
+    def run_nSteps(self, nSteps=1e2, dnLog=None):
         """ Step forward nStep times """
         # Initialize run
         step0 = self.step
+
+        if dnLog is None: dnLog = np.floor(nSteps/10.0)
          
         if step0 == 0:
             self.timer = time.time()
