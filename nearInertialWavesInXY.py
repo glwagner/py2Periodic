@@ -14,7 +14,7 @@ class model(doublyPeriodicModel):
             Ly = None, 
             # Solver parameters
             t  = 0.0,  
-            dt = 1.0e-1,                    # Numerical timestep
+            dt = 1.0e-2,                    # Numerical timestep
             step = 0, 
             timeStepper = "ETDRK4",         # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
@@ -53,8 +53,8 @@ class model(doublyPeriodicModel):
         self.f0 = f0
         self.kappa = kappa
         self.meanVisc = meanVisc
-        self.waveVisc = waveVisc
         self.meanViscOrder = meanViscOrder
+        self.waveVisc = waveVisc
         self.waveViscOrder = waveViscOrder
             
         # Initial routines
@@ -63,21 +63,17 @@ class model(doublyPeriodicModel):
         self._set_linear_coeff()
         self._init_time_stepper()
 
-        # Default initial condition.
-        soln = np.zeros_like(self.soln)
-
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/20
         q0 = 0.1*self.f0 * exp( \
             - ( (self.XX-self.Lx/2.0)**2.0 + (self.YY-self.Ly/2.0)**2.0 ) \
             / (2*rVortex**2.0) \
                        )
-        soln[:, :, 0] = q0
+        self.set_q(q0)
 
         # Default wave initial condition: uniform velocity.
-        soln[:, :, 1] = np.ones(self.physVarShape)
-        self.set_physical_soln(soln)
-        self.update_state_variables()
+        A0 = np.ones(self.physVarShape)
+        self.set_A(A0)
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_physics(self):
@@ -100,7 +96,7 @@ class model(doublyPeriodicModel):
             * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
 
         waveDispersion = 1j*self.f0/(2.0*self.kappa**2.0) \
-                            *(self.KK**2.0+self.LL**2.0)
+                            * ( self.KK**2.0 + self.LL**2.0)
 
         self.linearCoeff[:, :, 1] = waveDissipation + waveDispersion
        
@@ -112,14 +108,14 @@ class model(doublyPeriodicModel):
 
         # Physical-space things
         self.q = np.real(self.ifft2(qh))
-        self.A  =  self.ifft2(Ah)
+        self.A = self.ifft2(Ah)
 
         # Calculate streamfunction
         self.psih = -qh / self.divideSafeKay2
 
         # Mean velocities
-        self.U = np.real(self.ifft2(-self.jLL*self.psih))
-        self.V = np.real(self.ifft2( self.jKK*self.psih))
+        self.U = -np.real(self.ifft2(self.jLL*self.psih))
+        self.V =  np.real(self.ifft2(self.jKK*self.psih))
 
         # Views to clarify calculation of A's RHS
         U = self.U
@@ -129,7 +125,6 @@ class model(doublyPeriodicModel):
         
         # Right hand side for q
         self.RHS[:, :, 0] = -self.jKK*self.fft2(U*q) - self.jLL*self.fft2(V*q) 
-                                
 
         # Right hand side for A, in steps:
         ## 1. Advection term, 
@@ -164,8 +159,8 @@ class model(doublyPeriodicModel):
         self.psih = - qh / self.divideSafeKay2 
 
         # Physical-space PV and velocity components
-        self.A = self.ifft2(Ah)
         self.q = np.real(self.ifft2(qh))
+        self.A = self.ifft2(Ah)
 
         self.U = -np.real(self.ifft2(self.jLL*self.psih))
         self.V =  np.real(self.ifft2(self.jKK*self.psih))

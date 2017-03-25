@@ -75,7 +75,8 @@ class model(doublyPeriodicModel):
                        )
 
         # Default wave initial condition: uniform velocity.
-        self.set_planeWave_uvp(4)
+        u, v, p = self.make_plane_wave(4)
+        self.set_uvp(u, v, p)
         self.set_q(q0)
         self.update_state_variables()
         
@@ -147,26 +148,40 @@ class model(doublyPeriodicModel):
         Uy = self.Uy
         Vx = self.Vx        
 
-        # Linear right-side terms
-        self.RHS[:, :, 1] =  self.f0*vh - self.jKK*ph
-        self.RHS[:, :, 2] = -self.f0*uh - self.jLL*ph
-        self.RHS[:, :, 3] = -self.cn**2.0 * (self.jKK*uh + self.jLL*vh)
-    
-        # Nonlinear right hand side for q
-        self.RHS[:, :, 0] = -self.jKK*self.fft2(U*q) - self.jLL*self.fft2(V*q) 
-                                
-        # Nonlinear right hand side for u, v, p
-        ## x-momentum
-        self.RHS[:, :, 1] = -self.jKK*self.fft2(U*u) - self.jLL*self.fft2(V*u) \
-                                - self.fft2(u*Ux) - self.fft2(v*Uy)
+        # Solely nonlinear advection for q
+        self.RHS[:, :, 0] = - self.jKK*self.fft2(U*q) - self.jLL*self.fft2(V*q)
 
-        ## y-momentum. Recall that Vy = -Ux
-        self.RHS[:, :, 2] = -self.jKK*self.fft2(U*v) - self.jLL*self.fft2(V*v) \
-                                - self.fft2(u*Vx) + self.fft2(v*Ux)
+        # Linear terms + advection for u, v, p, + refraction for u, v
 
-        ## Buoyancy / continuity / pressure equation
-        self.RHS[:, :, 3] = -self.jKK*self.fft2(U*p) - self.jLL*self.fft2(V*p) 
+        # DEBUGGING
 
+        # Linear terms only
+        #self.RHS[:, :, 1] =  self.f0*vh - self.jKK*ph
+        #self.RHS[:, :, 2] = -self.f0*uh - self.jLL*ph
+        #self.RHS[:, :, 3] = -self.cn**2.0 * ( self.jKK*uh + self.jLL*vh )
+
+        # Nonlinear terms only
+        #self.RHS[:, :, 1] = \
+        #                        - self.jKK*self.fft2(U*u) - self.jLL*self.fft2(V*u) \
+        #                        - self.fft2(u*Ux) - self.fft2(v*Uy)
+
+        #self.RHS[:, :, 2] = \
+        #                        - self.jKK*self.fft2(U*v) - self.jLL*self.fft2(V*v) \
+        #                        - self.fft2(u*Vx) + self.fft2(v*Ux)
+
+        #self.RHS[:, :, 3] = \
+        #                        - self.jKK*self.fft2(U*p) - self.jLL*self.fft2(V*p)
+
+        # Both?
+        self.RHS[:, :, 1] =  self.f0*vh - self.jKK*ph \
+                                 - self.jKK*self.fft2(U*u) - self.jLL*self.fft2(V*u) \
+                                 - self.fft2(u*Ux) - self.fft2(v*Uy)
+        self.RHS[:, :, 2] = -self.f0*uh - self.jLL*ph \
+                                 - self.jKK*self.fft2(U*v) - self.jLL*self.fft2(V*v) \
+                                 - self.fft2(u*Vx) + self.fft2(v*Ux)
+        self.RHS[:, :, 3] = -self.cn**2.0 * ( self.jKK*uh + self.jLL*vh ) \
+                                 - self.jKK*self.fft2(U*p) - self.jLL*self.fft2(V*p)
+                               
         self._dealias_RHS()
          
     def _init_parameters(self):
@@ -221,7 +236,7 @@ class model(doublyPeriodicModel):
         self.soln = self._dealias_array(self.soln)
         self.update_state_variables()
 
-    def set_planeWave_uvp(self, kNonDim):
+    def make_plane_wave(self, kNonDim):
         """ Set linearized Boussinesq to a plane wave in x with speed 1 m/s
             and normalized wavenumber kNonDim """
 
@@ -238,7 +253,7 @@ class model(doublyPeriodicModel):
         u = a * kDim*sigma   * cos(kDim*self.XX)
         v = a * kDim*self.f0 * sin(kDim*self.XX)
 
-        self.set_uvp(u, v, p)
+        return u, v, p
 
     def set_uvp(self, u, v, p):
         """ Set linearized Boussinesq variables """

@@ -54,7 +54,7 @@ class model(doublyPeriodicModel):
         self._init_time_stepper()
 
         # Set the initial condition to default.
-        self.set_physical_soln(np.random.standard_normal(self.physSolnShape))
+        self.set_physical_soln(0.1*np.random.standard_normal(self.physSolnShape))
         self.update_state_variables()
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -81,12 +81,12 @@ class model(doublyPeriodicModel):
         self.psih = - qh / self.divideSafeKay2 
 
         # Vorticity and velocity
-        self.q = np.real(self.ifft2(qh))
-        self.u = -np.real(self.ifft2(self.jLL*self.psih))
-        self.v =  np.real(self.ifft2(self.jKK*self.psih))
+        self.q = self.ifft2(qh)
+        self.u = -self.ifft2(self.jLL*self.psih)
+        self.v =  self.ifft2(self.jKK*self.psih)
 
-        self.RHS[:, :, 0] = -self.jKK*self.fft2(self.u*self.q) \
-                            - self.jLL*self.fft2(self.v*self.q) 
+        self.RHS[:, :, 0] = - self.jKK*self.fft2(self.u*self.q) \
+                                - self.jLL*self.fft2(self.v*self.q) 
 
         self._dealias_RHS()
          
@@ -113,9 +113,9 @@ class model(doublyPeriodicModel):
         self.psih = - qh / self.divideSafeKay2 
 
         # Vorticity and velocity
-        self.q = np.real(self.ifft2(qh))
-        self.u = -np.real(self.ifft2(self.jLL*self.psih))
-        self.v =  np.real(self.ifft2(self.jKK*self.psih))
+        self.q = self.ifft2(qh)
+        self.u = -self.ifft2(self.jLL*self.psih)
+        self.v =  self.ifft2(self.jKK*self.psih)
 
     def plot_current_state(self):
         """ Create a simple plot that shows the state of the model."""
