@@ -1,0 +1,139 @@
+\documentclass[12pt, oneside]{article}
+
+\usepackage{float}
+\usepackage{lineno}
+\usepackage{color, amssymb, amsmath, amsthm, verbatim, wasysym}
+\usepackage{natbib}
+\usepackage{epsfig}
+\usepackage[mathscr]{eucal}
+\usepackage{mathrsfs}
+\usepackage{appendix}
+\raggedbottom
+\usepackage[left=0.8in,right=0.8in,top=0.8in,bottom=0.9in,centering]{geometry}      
+
+% Uncomment to show references.
+%\usepackage[notcite,notref]{showkeys}
+
+% To make really wide hats that cover everything:
+\usepackage{scalerel}
+\usepackage{stackengine}
+\setstackEOL{\#}
+\stackMath
+\def\hatgap{1pt}
+\def\subdown{-0.2pt}
+\newcommand\reallywidehat[2][]{%
+\renewcommand\stackalignment{l}%
+\stackon[\hatgap]{#2}{%
+\stretchto{%
+    \scalerel*[\widthof{$#2$}]{\kern-.6pt\bigwedge\kern-.6pt}%
+    {\rule[-\textheight/2]{1ex}{\textheight}}%WIDTH-LIMITED BIG WEDGE
+}{0.6ex}% THIS SQUEEZES THE WEDGE TO 0.5ex HEIGHT
+_{\smash{\belowbaseline[\subdown]{\scriptstyle#1}}}%
+}}
+
+% For a 'strut' that creates space above underbraces
+\newcommand*\mystrut[1]{\vrule width0pt height0pt depth#1\relax}
+
+% Punctuation
+\newcommand{\com}{\, ,}
+\newcommand{\per}{\, .}
+
+% A nice 'definition'
+\newcommand{\defn}{\ensuremath{\stackrel{\mathrm{def}}{=}}}
+
+% Use \bar to over line solo symbols
+\newcommand{\av}[1]{\left \langle{#1} \right \rangle}
+\newcommand{\avbg}[1]{\overline{#1}}
+\newcommand{\avbgg}[1]{\overline{#1}}
+\newcommand{\hav}[1]{\widehat{#1}}
+
+% Begin and end equations
+\newcommand{\beq}{\begin{equation}}
+\newcommand{\eeq}{\end{equation}}
+
+% Vector calculus operators
+\newcommand{\p}{\partial}
+\newcommand{\bnabla}{\boldsymbol \nabla}
+\newcommand{\pnabla}{\boldsymbol \nabla_{\! \! \perp}}
+\newcommand{\hnabla}{\bnabla_{\! \! h}}
+\newcommand{\bnablad}{\bnabla_{\! \! \alpha}}
+\newcommand{\bcdot}{\boldsymbol \cdot}
+\newcommand{\hlap}{\triangle_h}
+\newcommand{\lap}{\triangle}
+\newcommand{\grad}{\bnabla}
+\newcommand{\curl}{\bnabla \!\times\!}
+\newcommand{\diver}{\bnabla \bcdot }
+\newcommand{\cross}{\times}
+
+% Bold symbolds
+\newcommand{\bu}{\boldsymbol u}
+\newcommand{\buh}{\boldsymbol u_h}
+\newcommand{\bx}{\boldsymbol x}
+\newcommand{\ba}{\boldsymbol{a}}
+\newcommand{\bk}{\boldsymbol{k}}
+\newcommand{\bh}{\boldsymbol{h}}
+\newcommand{\bm}{\boldsymbol{m}}
+\newcommand{\bn}{\boldsymbol{\hat n}}
+\newcommand{\bxh}{\hspace{0.1em} \boldsymbol{\hat x}}
+\newcommand{\byh}{\hspace{0.1em}\boldsymbol{\hat y}}
+\newcommand{\bzh}{\hspace{0.1em}\boldsymbol{\hat z}}
+\newcommand{\bnh}{\hspace{0.1em}\boldsymbol{\hat n}}
+\newcommand{\bomega}{\boldsymbol \omega}
+\newcommand{\bOmega}{\boldsymbol \Omega}
+\newcommand{\bxi}{\ensuremath {\boldsymbol {\xi}}}
+\newcommand{\bXi}{\ensuremath {\boldsymbol {\Xi}}}
+\newcommand{\bU}{\boldsymbol{U}}
+\newcommand{\bX}{\boldsymbol{X}}
+
+% Greek abbrevs
+\newcommand{\ep}{\epsilon}
+\newcommand{\om}{\omega}
+\newcommand{\kap}{\kappa}
+
+% Roman characters
+\newcommand{\ee}{\mathrm{e}}
+\newcommand{\ii}{\mathrm{i}}
+\newcommand{\cc}{\mathrm{cc}}
+\newcommand{\dd}{{\rm d}}
+\newcommand{\id}{{\, \rm d}}
+\newcommand{\DD}{{\rm D}}
+\newcommand{\J}{\mathrm{J}}
+\renewcommand{\L}{\mathrm{L}}
+
+% Non-dimensional numbers 
+\newcommand{\Ri}{Ri}
+\newcommand{\Ro}{Ro}
+\newcommand{\Bu}{Bu}
+\newcommand{\Pe}{Pe}
+
+% Material derivative
+\newcommand{\Dt}[1]{\mathrm{D}_t #1}
+
+% Small in-line fractions
+\newcommand{\half}{\tfrac{1}{2}}
+
+% Bold 'F' for 'forcing'
+\newcommand{\bff}{\boldsymbol{F}}
+\newcommand{\fh}{\breve f}
+
+% Dissipation operator
+\newcommand{\friction}{\mathrm{F}}
+\newcommand{\mixing}{\mathrm{M}}
+
+\newcommand{\mode}{\phi}
+
+\begin{document}
+
+\title{\vspace{-4ex} Quasi-geostrophic flow with tracers}
+\author{Greg}
+\date{} \maketitle \vspace{-4ex}
+
+\section{Preliminaries}
+
+Two-layer quasi-geostrophic flow is governed by
+
+
+\bibliographystyle{jfm}
+\bibliography{refs}
+
+\end{document}

@@ -116,40 +116,151 @@ _{\smash{\belowbaseline[\subdown]{\scriptstyle#1}}}%
 \newcommand{\bff}{\boldsymbol{F}}
 \newcommand{\fh}{\breve f}
 
-% Dissipation operator
+% Operators
 \newcommand{\friction}{\mathrm{F}}
 \newcommand{\mixing}{\mathrm{M}}
+\newcommand{\wave}{\mathrm{E}}
+\newcommand{\disp}{\mathrm{D}}
 
 \newcommand{\mode}{\phi}
+\newcommand{\psih}{\hat \psi}
+\newcommand{\qh}{\hat q}
 
 \begin{document}
 
-\title{\vspace{-4ex} Reduced equations for Boussinesq internal waves}
+\title{\vspace{-4ex} Reduced equations for weakly nonlinear Boussinesq flows}
 \author{Greg}
 \date{} \maketitle \vspace{-4ex}
 
-\section{The YBJ equation}
+\section{The quasi-geostrophic equation}
 
-The two prognostic variables in the YBJ equation are wave field amplitude $A$ and quasi-geostrophic potential vorticity $q$. Quasi-geostrophic potential vorticity is related to the quasi-geostrophic streamfunction through the elliptic equation
+Quasi-geostrophic flow is a small amplitude, slowly-evolving, hydrostatic and small-aspect-ratio mode of motion in rotating stratified flow. Its evolution is much slower than a rotation period due to small departures from a linear, static balance betwen velocity and pressure. The evolution of quasi-geostrophic flow is governed by the advection of quasi-geostrophic potential vorticity, which is related to its advecting streamfunction through the elliptic equation
 \beq
 q = \Big ( \underbrace{\mystrut{2ex} \p_x^2 + \p_y^2}_{\defn \hlap} + \underbrace{\mystrut{2ex} \p_z \frac{f_0^2}{N^2} \p_z}_{\defn \L} \Big ) \psi \com
+\label{pv}
 \eeq
-where the streamfunction is related to the velocity and buoyancy fields via $\bU = - \psi_y \bxh + \psi_x \byh$ and $B = f_0 \psi_z$.  The quasi-geostrophic potential vorticity solves the advection equation
+With the rotation rate $f = f_0 + \beta y$, quasi-geostrophic potential vorticity solves the advection equation
 \beq
-q_t + \J \left ( \psi, q \right ) = \friction_u \hlap \psi + \mixing_b \L \psi \per
+q_t + \J \left ( \psi, q \right ) + \beta \psi_x = \friction \left ( \hlap \psi \right ) + \mixing \left ( \L \psi \right ) \per
+\label{qg}
 \eeq
-The wave field amplitude represents the complexified horizontal velocity via
+A projection of both \eqref{pv} and \eqref{qg} onto the vertical modes $\phi_{nz}$ yields
+\beq
+q_n = \left ( \hlap - \lambda_n^{-2} \right ) \psi_n \com \qquad \text{and} \qquad q_{nt} + \beta \psi_{nx} + \int \phi_{nz} \J \left ( \psi, q \right ) \id z = \friction_n \left ( \hlap \psi_n \right) - \lambda_n^{-2} \mixing_n \left ( \psi_n \right ) \per
+\eeq
+It is not true in general that the vertical mode projection commutes with the operators $\friction$ and $\mixing$, but we assume this here for simplicity.
+
+\subsection{Two-layer quasi-geostrophic flow with tracers}
+
+The two-layer equations for potential vorticities $q_1,q_2$, and streamfunctions $\psi_1, \psi_2$, in layers 1 and 2 consist of a potential vorticity conservation equation for each layer, 
+\begin{align}
+q_{1t} + \J \left ( \psi_1, q_1 \right ) + \beta \psi_{1x} &= \friction_1 \left ( \hlap \psi_1 \right ) \com \\
+q_{2t} + \J \left ( \psi_2, q_2 \right ) + \beta \psi_{2x} &= \friction_2 \left ( \hlap \psi_2 \right ) \com
+\end{align}
+where typically the layer-1 friction operator is an isotropic viscous-like term of the form
+\beq
+\friction_1 = (-1)^{n/2-1} \nu \hlap^{n/2} \com
+\eeq
+and the layer-2 friction operator includes both a viscous term and a term for linear drag, so that
+\beq
+\friction_2 = - r \hlap  + (-1)^{n/2-1} \nu \hlap^{n/2} \per
+\eeq
+The potential vorticity in each layer depends both on the layerwise relative vorticity, as well as the `shear' $\psi_1-\psi_2$, according to 
+\begin{align}
+q_1 &= \hlap \psi_1 - F_1 \left ( \psi_1 - \psi_2 \right ) \label{psi1} \\
+q_2 &= \hlap \psi_2 + F_2 \left ( \psi_1 - \psi_2 \right ) \per \label{psi2}
+\end{align}
+The Fourier transform of \eqref{psi1} and \eqref{psi2} can be rearranged into 
+\beq
+ \left [ \, \begin{matrix}
+\psih_1 \\
+\psih_2
+\end{matrix} \, \right ] = 
+- \frac{1}{\text{det} M_2} \left [ \, \begin{matrix}
+ K^2 + F_2 &  F_1 \\
+F_2 & K^2 + F_1 
+\end{matrix} \, \right ]  \left [ \, \begin{matrix}
+\qh_1 \\
+\qh_2
+\end{matrix} \, \right ] \com
+\eeq
+where $M_2$ is a matrix and it's determinant $\text{det} M_2$ is
+\beq
+\text{det} M_2 = K^2 \left ( K^2 + F_1 + F_2 \right ) \per
+\eeq
+
+We also include layerwise tracer distributsion $c_1$ and $c_2$, whose conservation is governed by
+\begin{align}
+c_{1t} + \J \left ( \psi_2, c_1 \right ) &= \kappa \left ( c_1 - c_2 \right ) + \mixing c_1 \com \\
+c_{2t} + \J \left ( \psi_2, c_2 \right ) &= \kappa \left ( c_2 - c_1 \right ) + \mixing c_2 \com 
+\end{align}
+$\kappa$ is the vertical diffusion coefficient.
+
+\subsection{$n$-layer quasi-geostrophic flow}
+
+\section{The YBJ equation}
+
+The two prognostic variables in the YBJ equation are wave field amplitude $A$ and quasi-geostrophic potential vorticity $q$. The wave field amplitude represents the complexified horizontal velocity via
 \beq
 \tilde u + \ii \tilde v = \ee^{- \ii f_0 t} \L A \com
 \eeq
 and solves the YBJ equation
 \beq
-\L A_t + \frac{\ii f_0}{2} \hlap A +  \J \left ( \psi, \L A \right ) + \L A \left ( \tfrac{\ii}{2} \hlap \psi + \beta y \right ) = \friction_A \L A \per
+\L A_t + \frac{\ii f_0}{2} \hlap A +  \J \left ( \psi, \L A \right ) + \L A \left ( \tfrac{\ii}{2} \hlap \psi + \beta y \right ) = \friction \left ( \L A \right ) \per
+\label{ybj}
 \eeq
 
 \subsection{In $x,y$ with barotropic $\psi(x, y, t)$}
 
-\subsection{In $x, z$ with stationary $\psi(x, z)$}
+When $\psi = \psi(x, y, t)$ is barotropic and does not depend on $z$, the YBJ equation \eqref{ybj} can be projected onto vertical modes to yield
+\beq
+A_{nt} - \frac{\ii f_0 \lambda_n^2}{2} \hlap A_n + \J \left ( \psi, A_n \right ) + A_n \left ( \tfrac{\ii}{2} \hlap \psi + \beta y \right ) = \friction_{n} \left ( A_n \right ) \per
+\eeq
+The quasi-geostrophic streamfunction $\psi$ obeys the ordinary two-dimensional turbulence equation, 
+\beq
+\hlap \psi_t + \J \left ( \psi, \hlap \psi \right ) = \friction \left ( \hlap \psi \right ) \per
+\eeq
+
+\subsection{In $y, z$ with stationary $\psi(y, z)$}
+
+When $\psi(y, z)$ does not depend on $y$ and therefore does not evolve, and $N$ is constant, the YBJ equation reduces to
+\beq
+A_{zzt} + \frac{\ii N^2}{2 f_0} A_{yy} + \left ( \tfrac{\ii}{2} \psi_{yy} + \beta y \right ) A_{zz} = \friction \left ( A_{zz} \right ) \per
+\eeq
+Because $q_t = 0$ when $\psi_x = q_x = 0$, the PV equation is solved automatically and $\psi$ does not evolve.
+
+\section{The hydrostatic wave equation}
+
+The hydrostatic wave equation for a wave field with frequency $\sigma$ is
+\beq
+\begin{split}
+& \wave A_{t} + \J \left ( \psi , \wave A \right ) + \ii \alpha \sigma \disp A  + \J \left ( A, \disp \psi \right )  \\
+& \qquad - \tfrac{2 \ii \sigma}{f_0^2} \Big [  \J \left ( \psi_x , \ii \sigma A_x - f_0 A_y \right ) +  \J \left ( \psi_y , \ii \sigma A_y + f_0 A_x \right ) \Big ] \\
+& \qquad \qquad + \tfrac{ \ii \sigma}{f_0}  \left [ \hnabla \bcdot \left ( \disp \psi \hnabla A \right ) - \disp \left ( \tfrac{\alpha f_0^2}{N^2} \psi_z A_z \right ) + \p_z \left ( \tfrac{\alpha f_0^2}{N^2} \psi_z \disp A \right ) \right ]  =0 \per
+\end{split}
+\label{internalTideEqnRemodeling}
+\eeq
+where the operators $\wave$ and $\disp$ are defined
+\beq
+\wave \defn \frac{\alpha}{2} \left [ \hlap + \left (4  + 3 \alpha \right ) \L \right ] \qquad \text{and} \qquad \disp \defn \hlap - \alpha \L \per
+\eeq
+
+\subsection{In $x,y$ with barotropic $\psi(x, y, t)$}
+
+\beq
+\begin{split}
+& \wave_n A_{nt} + \ii \alpha \sigma \disp_n A_n +  \J \left ( \psi, \wave_n A_n \right ) + \J \left ( A_n, \hlap \psi \right ) + \tfrac{\ii \sigma}{f_0} \hnabla \bcdot \left ( \hlap \psi \hnabla A_n \right ) \\
+&  \qquad - \tfrac{2 \ii \sigma}{f_0^2} \left [ \J \left ( \psi_x, \ii \sigma A_{nx} - f_0 A_{ny} \right ) + \J \left ( \psi_y, \ii \sigma A_{ny} + f_0 A_{nx} \right )  \right ] = \friction_n \left ( A_n \right ) \com
+\end{split}
+\label{modeWiseWaveEqn}
+\eeq
+where $\nu_A$ is the hyperviscosity applied to $A_n$, and the mode-wise operators $\wave_n$ and $\disp_n$ are
+\beq
+\wave_n = \frac{\alpha}{2} \Big [ \hlap - \lambda_n^{-2} \left ( 4 + 3 \alpha \right ) \Big ] \qquad \text{and} \qquad \disp_n = \hlap + \alpha \lambda_n^{-2} \per
+\eeq
+Equation \eqref{modeWiseWaveEqn} describes the horizontal propagation of a mode-$n$ wave field with amplitude $A_n(x,y,t)$ through two-dimensional turbulence with streamfunction $\psi$.  The arbitrary stratification profile $N(z)$ enters \eqref{modeWiseWaveEqn} via the eigenvalue $\lambda_n^{-2}$ determined by \eqref{modalEigenproblem}.
+
+\subsection{In $y, z$ with stationary $\psi(y, z)$}
 
 \appendix
 
@@ -175,15 +286,13 @@ Some trickiness is associated with the friction operator $\friction$. We want to
 \eeq
 for example. This is not always possible, however.  Notice that if $\friction = \nu \lap$, then
 \beq
-\int_{-H}^0 \phi_{nz} \nu \lap u \id z = \nu \hlap u_n + \frac{\kappa_n^2}{f_0^2} \int_{-H}^0 N^2 \phi_n u_{z} \id z \com
+\int_{-H}^0 \phi_{nz} \nu \lap u \id z = \nu \hlap u_n - \frac{1}{(f_0 \lambda_n)^2} \int_{-H}^0 N^2 \phi_n u_{z} \id z \com
 \eeq
 and different modes are therefore coupled by the rightmost term. When $N$ is constant, however, this becomes 
 \beq
 \int_{-H}^0 \phi_{nz} \nu \lap u \id z = \nu \hlap u_n + \nu \left ( \tfrac{n \pi}{H} \right )^2 u_n \com
 \eeq
 and therefore $\friction_n = \nu \left ( \hlap + \left ( \tfrac{n \pi}{H} \right )^2 \right )$. A similar conundrum is associated with the diffusion operator $\mixing$.
-
-\appendix
 
 \section{The non-hydrostatic Boussinesq equations}
 
