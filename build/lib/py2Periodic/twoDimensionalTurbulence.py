@@ -2,7 +2,7 @@ import doublyPeriodic
 import numpy as np; from numpy import pi 
 import time
 
-class model(doublyPeriodic.model):
+class model(doublyPeriodic.numerics):
     def __init__(
             self,
             name = "twoDimensionalTurbulenceExample", 
@@ -24,7 +24,8 @@ class model(doublyPeriodic.model):
         ):
 
         # Initialize super-class.
-        doublyPeriodic.model.__init__(self, 
+        #super(model, self).__init__(self, 
+        doublyPeriodic.numerics.__init__(self, 
             physics = "two-dimensional turbulence",
             nVars = 1, 
             realVars = True,

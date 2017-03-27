@@ -1,0 +1,4 @@
+matplotlib==2.0.0
+numpy==1.11.3
+pyFFTW==0.10.4
+setuptools==34.3.3

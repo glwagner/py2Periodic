@@ -1,9 +1,8 @@
-import numpy as np
-from numpy import pi, exp, sqrt, cos, sin
-from doublyPeriodic import doublyPeriodicModel
+import doublyPeriodic
+import numpy as np; from numpy import pi 
 import time
 
-class model(doublyPeriodicModel):
+class model(doublyPeriodic.model):
     def __init__(
             self,
             name = "linearizedNIWEquationExample", 
@@ -30,7 +29,7 @@ class model(doublyPeriodicModel):
         ):
 
         # Initialize super-class.
-        doublyPeriodicModel.__init__(self, 
+        doublyPeriodic.model.__init__(self, 
             physics = "two-dimensional turbulence and the" + \
                             " near-inertial wave equation",
             nVars = 2, 
@@ -65,7 +64,7 @@ class model(doublyPeriodicModel):
 
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/20
-        q0 = 0.1*self.f0 * exp( \
+        q0 = 0.1*self.f0 * np.exp( \
             - ( (self.XX-self.Lx/2.0)**2.0 + (self.YY-self.Ly/2.0)**2.0 ) \
             / (2*rVortex**2.0) \
                        )
@@ -200,7 +199,7 @@ class model(doublyPeriodicModel):
         plt.axis('square')
 
         ax2 = plt.subplot(122)
-        plt.pcolormesh(self.xx, self.yy, sqrt(self.uu**2.0+self.vv**2.0))
+        plt.pcolormesh(self.xx, self.yy, np.sqrt(self.uu**2.0+self.vv**2.0))
         plt.axis('square')
 
     def describe_model(self):

@@ -2,7 +2,7 @@ import doublyPeriodic
 import numpy as np; from numpy import pi 
 import time
 
-class model(doublyPeriodic.model):
+class model(doublyPeriodic.numerics):
     def __init__(
             self,
             name = "twoLayerQuasigeostrophicExample", 
@@ -35,7 +35,7 @@ class model(doublyPeriodic.model):
         ):
 
         # Initialize super-class.
-        doublyPeriodic.model.__init__(self, 
+        doublyPeriodicModel.__init__(self, 
             physics = "two-layer quasi-geostrophic flow",
             nVars = 2, 
             realVars = True,

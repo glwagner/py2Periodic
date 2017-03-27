@@ -1,21 +1,29 @@
 import numpy as np
-from numpy import pi
-import pyfftw, mkl, time
+from numpy import pi, sin, cos, sqrt, exp
+import time
+import pyfftw
+pyfftw.interfaces.cache.enable() 
 
-class model(object):
+try:   
+    import mkl
+    np.use_fastnumpy = True
+except ImportError:
+    pass
+
+class numerics(object):
     def __init__(
             self,
             physics = None,
             nVars = 1,
             realVars = False,
             # Grid parameters
-            nx = 64,
+            nx = 256,
             Lx = 2.0*pi, 
             ny = None,
             Ly = None, 
             # Solver parameters
             t  = 0.0,  
-            dt = 1.0,                      # Fixed numerical time-step.
+            dt = 1.0e-2,                   # Fixed numerical time-step.
             step = 0,                      # Initial or current step of the model
             timeStepper = "forwardEuler",  # Time-stepping method
             nThreads = 1,                  # Number of threads for FFTW
@@ -47,10 +55,6 @@ class model(object):
             "_init_time_stepper_{}".format(self.timeStepper))
         self._step_forward = getattr(self, 
             "_step_forward_{}".format(self.timeStepper))
-
-        # Initialize numpy's multithreading
-        np.use_fastnumpy = True
-        mkl.set_num_threads(self.nThreads)
 
         # Call initialization routines for the doubly-periodic model
         self._init_physical_grid()
@@ -115,7 +119,6 @@ class model(object):
 
     def _init_fft(self):
         """ Initialize the fast Fourier transform routine. """
-        pyfftw.interfaces.cache.enable() 
 
         if self.realVars:
             self.fft2 = (lambda x :
@@ -196,7 +199,7 @@ class model(object):
             self.t += self.dt
             self.step += 1
 
-    def describe_model(self):
+    def __describe_model(self):
         """ Describe the current model state """
 
         print("\nThis is a doubly-periodic spectral model with the following " + \
@@ -206,6 +209,9 @@ class model(object):
                 "   Timestep     : {:.2e} s\n".format(self.dt) + \
                 "   Current time : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads))
+
+    # Name mangle
+    describe_model = __describe_model
 
     # Time steppers for the doublyPeriodicModel class - - - - - - - - - - - - - 
     
@@ -225,8 +231,7 @@ class model(object):
     def _step_forward_forwardEuler(self):
         """ March system forward in time using forward Euler scheme """
         self._calc_right_hand_side(self.soln, self.t)
-        #self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
-        self.soln += self.dt*(self.RHS - np.multiply(self.linearCoeff, self.soln))
+        self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
 
     ## RKW3 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RKW3(self):
@@ -338,7 +343,7 @@ class model(object):
         # Calculate coefficients with circular line integral in complex plane
         nCirc = 32          
         rCirc = 1.0       
-        circ = rCirc*np.exp(2j*pi*(np.arange(1, nCirc+1)-1/2)/nCirc) 
+        circ = rCirc*exp(2j*pi*(np.arange(1, nCirc+1)-1/2)/nCirc) 
 
         # Circular contour around the point to be calculated
         zc = -linearCoeffDt[..., np.newaxis] \
@@ -346,23 +351,23 @@ class model(object):
 
         # Four coefficients, zeta, alpha, beta, and gamma
         self.zeta = self.dt*( \
-                        (np.exp(zc/2.0) - 1.0) / zc \
+                        (exp(zc/2.0) - 1.0) / zc \
                             ).mean(axis=-1)
 
         self.alph = self.dt*( \
-                      (-4.0 - zc + np.exp(zc)*(4.0-3.0*zc+zc**2.0)) / zc**3.0 \
+                      (-4.0 - zc + exp(zc)*(4.0-3.0*zc+zc**2.0)) / zc**3.0 \
                             ).mean(axis=-1)
 
         self.beta = self.dt*( \
-                      (2.0 + zc + np.exp(zc)*(-2.0+zc) ) / zc**3.0 \
+                      (2.0 + zc + exp(zc)*(-2.0+zc) ) / zc**3.0 \
                             ).mean(axis=-1)
 
         self.gamm = self.dt*( \
-                      (-4.0 - 3.0*zc - zc**2.0 + np.exp(zc)*(4.0-zc)) / zc**3.0 \
+                      (-4.0 - 3.0*zc - zc**2.0 + exp(zc)*(4.0-zc)) / zc**3.0 \
                             ).mean(axis=-1)
                               
         # Pre-calculate an exponential     
-        self.linearExp = np.exp(-self.dt*self.linearCoeff/2)
+        self.linearExp = exp(-self.dt*self.linearCoeff/2)
 
         # Allocate intermediate solution variable
         self.soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
