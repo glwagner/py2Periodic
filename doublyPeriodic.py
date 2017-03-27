@@ -138,8 +138,8 @@ class doublyPeriodicModel(object):
     def _print_status(self):
         """ Print model status """
         tc = time.time() - self.timer
-        print("step = {:d}, clock = {:04.3f} s, ".format(self.step, tc) + \
-                "t = {:.3f} s".format(self.t))
+        print("step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
+                "t = {:.2e} s".format(self.t))
         self.timer = time.time()
 
     def _dealias_RHS(self):

@@ -154,16 +154,12 @@ It is not true in general that the vertical mode projection commutes with the op
 
 The two-layer equations for potential vorticities $q_1,q_2$, and streamfunctions $\psi_1, \psi_2$, in layers 1 and 2 consist of a potential vorticity conservation equation for each layer, 
 \begin{align}
-q_{1t} + \J \left ( \psi_1, q_1 \right ) + \beta \psi_{1x} &= \friction_1 \left ( \hlap \psi_1 \right ) \com \\
-q_{2t} + \J \left ( \psi_2, q_2 \right ) + \beta \psi_{2x} &= \friction_2 \left ( \hlap \psi_2 \right ) \com
+q_{1t} + \J \left ( \psi_1, q_1 \right ) + \beta \psi_{1x} &= \friction \left ( q_1 \right ) \com \\
+q_{2t} + \J \left ( \psi_2, q_2 \right ) + \beta \psi_{2x} &= - r \hlap \psi_2 +  \friction \left ( q_2 \right ) \com
 \end{align}
-where typically the layer-1 friction operator is an isotropic viscous-like term of the form
+where typically the layerwise friction operator is an isotropic viscous-like term of the form
 \beq
-\friction_1 = (-1)^{n/2-1} \nu \hlap^{n/2} \com
-\eeq
-and the layer-2 friction operator includes both a viscous term and a term for linear drag, so that
-\beq
-\friction_2 = - r \hlap  + (-1)^{n/2-1} \nu \hlap^{n/2} \per
+\friction = (-1)^{n/2-1} \nu \hlap^{n/2} \com
 \eeq
 The potential vorticity in each layer depends both on the layerwise relative vorticity, as well as the `shear' $\psi_1-\psi_2$, according to 
 \begin{align}
