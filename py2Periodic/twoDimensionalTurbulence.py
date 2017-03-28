@@ -122,10 +122,12 @@ class model(doublyPeriodic.model):
         print("\nThis is a doubly-periodic spectral model for \n" + \
                 "{:s} \n".format(self.physics) + \
                 "with the following attributes:\n\n" + \
-                "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
-                "   Resolution   : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                "   Timestep     : {:.2e} s\n".format(self.dt) + \
-                "   Current time : {:.2e} s\n\n".format(self.t) + \
+                "   Domain           : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
+                "   Resolution       : {:d} X {:d}\n".format(self.nx, self.ny) + \
+                "   Timestep         : {:.2e} s\n".format(self.dt) + \
+                "   (Hyper)viscosity : {:.2e} m^2/s\n".format(self.visc) + \
+                "   Viscosity-order  : {:.1f} \n".format(self.viscOrder) + \
+                "   Current time     : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads) \
         )
 

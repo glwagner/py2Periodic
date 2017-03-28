@@ -130,7 +130,8 @@ class model(doublyPeriodic.model):
         self.delta = self.H1/self.H2
 
         ## Squared deformation wavenumber
-        self.kDef2 = self.f0**2.0/self.g * (self.H1 + self.H2)/(self.H1*self.H2)
+        self.kDef2 = self.f0**2.0/self.g \
+            * (self.H1 + self.H2)/(self.H1*self.H2)
 
         ## Scaled, squared deformation wavenumbers
         self.F1 = self.kDef2 / (1 + self.delta**2.0)
@@ -214,8 +215,8 @@ class model(doublyPeriodic.model):
         KE = KE1 + KE2
 
         # Calculate CFL number
-        maxSpeed1 = (sqrt(self.u1**2.0 + self.v1**2.0)).max()
-        maxSpeed2 = (sqrt(self.u2**2.0 + self.v2**2.0)).max()
+        maxSpeed1 = (np.sqrt(self.u1**2.0 + self.v1**2.0)).max()
+        maxSpeed2 = (np.sqrt(self.u2**2.0 + self.v2**2.0)).max()
 
         CFL1 = maxSpeed1 * self.dt * self.nx/self.Lx
         CFL2 = maxSpeed2 * self.dt * self.nx/self.Lx
