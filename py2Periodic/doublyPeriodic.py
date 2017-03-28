@@ -195,7 +195,7 @@ class model(object):
         while (self.step < step0+nSteps):
             self._step_forward()
 
-            if (self.step % dnLog == 0.0):
+            if self.step > 0 and self.step % dnLog == 0.0:
                 self._print_status()
 
             self.t += self.dt
