@@ -10,23 +10,65 @@ import matplotlib.pyplot as plt
 #f0 = 4.176e-3
 f0 = 1.744e-5
 dt = 8000
-qg = twoLayerQuasigeostrophic.model(
-    Lx = 1.0e6,
-    nx = 128, 
-    dt = dt,
-    nThreads = 4,
-    timeStepper = 'RKW3',
-    f0 = f0,
-    beta = 1.5e-11,
-    g = 9.81,
-    H1 = 500,
-    H2 = 2000,
-    U1 = 2.5e-2,
-    U2 = 0.0,
-    drag = 5.787e-7,
-    visc = 1.0e-6, 
-    viscOrder = 4.0,
-)
+
+# Test dictionary input...
+pyqgInput = { 
+    'Lx'         : 1.0e6, 
+    'f0'         : f0, 
+    'beta'       : beta,
+    'g'          : 9.81, 
+    'H1'         : 500, 
+    'H2'         : 2000, 
+    'U1'         : 2.5e-2, 
+    'U2'         : 0.0, 
+    'drag'       : 5.787e-7, 
+    'visc'       : 1.0e-6, 
+    'viscOrder'  : 4.0, 
+    'nx'         : 128, 
+    'dt'         : dt, 
+    'timeStepper': 'RKW3', 
+    'nThreads'   : 8, 
+}
+
+#qg = twoLayerQuasigeostrophic.model(
+#    Lx = 1.0e6,
+#    nx = 128, 
+#    dt = dt,
+#    nThreads = 4,
+#    timeStepper = 'RKW3',
+#    f0 = f0,
+#    beta = 1.5e-11,
+#    g = 9.81,
+#    H1 = 500,
+#    H2 = 2000,
+#    U1 = 2.5e-2,
+#    U2 = 0.0,
+#    drag = 5.787e-7,
+#    visc = 1.0e-6, 
+#    viscOrder = 4.0,
+#)
+
+H1 = 1.4610e4
+H2 = 5.0*H1
+glennsInput = { 
+    'Lx'         : 1.0e3, 
+    'f0'         : 8.64, 
+    'beta'       : 1.728e-3,
+    'g'          : 9.81, 
+    'H1'         : H1, 
+    'H2'         : H2, 
+    'U1'         : 2.5e1, 
+    'U2'         : 5.0, 
+    'drag'       : 0.1, 
+    'visc'       : 1.0e-6, 
+    'viscOrder'  : 4.0, 
+    'nx'         : 128, 
+    'dt'         : dt, 
+    'timeStepper': 'RKW3', 
+    'nThreads'   : 8, 
+}
+
+qg = twoLayerQuasigeostrophic.model(**glennsInput)
 qg.describe_model()
 
 # Initial condition: zeros in q2, random weak-global, strong-zonal

@@ -1,6 +1,11 @@
-import numpy as np
-from numpy import pi
-import pyfftw, mkl, time
+import numpy as np; from numpy import pi
+import pyfftw, time
+try:
+    import mkl
+    usingMKL = True
+    np.use_fastnumpy = True
+except ImportError:
+    usingMKL = False
 
 class model(object):
     def __init__(
@@ -49,8 +54,8 @@ class model(object):
             "_step_forward_{}".format(self.timeStepper))
 
         # Initialize numpy's multithreading
-        np.use_fastnumpy = True
-        mkl.set_num_threads(self.nThreads)
+        if usingMKL:
+            mkl.set_num_threads(self.nThreads)
 
         # Call initialization routines for the doubly-periodic model
         self._init_physical_grid()
@@ -225,8 +230,7 @@ class model(object):
     def _step_forward_forwardEuler(self):
         """ March system forward in time using forward Euler scheme """
         self._calc_right_hand_side(self.soln, self.t)
-        #self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
-        self.soln += self.dt*(self.RHS - np.multiply(self.linearCoeff, self.soln))
+        self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
 
     ## RKW3 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RKW3(self):

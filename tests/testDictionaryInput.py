@@ -4,17 +4,18 @@ import numpy as np; from numpy import pi
 import time
 import matplotlib.pyplot as plt
 
-# Generate a model for two-dimensional turbulence
-m = twoDimensionalTurbulence.model(
-    nx = 256, 
-    Lx = 2.0*pi, 
-    dt = 1.0e-2,
-    nThreads = 8, 
-    timeStepper = 'forwardEuler',
-    visc = 1.0e-5, 
-    viscOrder = 4.0, 
-)
+params = {
+    'nx'         : 256, 
+    'Lx'         : 2.0*pi, 
+    'dt'         : 1.0e-2,
+    'visc'       : 1.0e-5, 
+    'viscOrder'  : 4.0, 
+    'nThreads'   : 8, 
+    'timeStepper': 'forwardEuler',
+}
 
+# Generate a model for two-dimensional turbulence
+m = twoDimensionalTurbulence.model(**params)
 m.describe_model()
 
 # Define initial condition
