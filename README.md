@@ -1,7 +1,9 @@
 # py2Periodic
 
-This code solves several PDEs on doubly-periodic two-dimensional domains, 
-and provides a framework for generating solvers with new physics.
+This code is under rapid and somewhat chaotic development.
+
+When it is complete, this code will solve several PDEs on doubly-periodic two-dimensional 
+domains, and provide a low-level framework for rapidly generating solvers with new physics.
 
 This is achieved by introducing a "base-class, sub-class" relationship between
 the numerical and physical aspects of the solver. The physics-agnostic attributes 
