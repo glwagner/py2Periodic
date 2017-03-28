@@ -366,7 +366,8 @@ class model(object):
                             ).mean(axis=-1)
                               
         # Pre-calculate an exponential     
-        self.linearExp = np.exp(-self.dt*self.linearCoeff/2)
+        self.linearExpDt     = np.exp(-self.dt*self.linearCoeff)
+        self.linearExpHalfDt = np.exp(-self.dt/2.0*self.linearCoeff)
 
         # Allocate intermediate solution variable
         self.soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
@@ -383,20 +384,20 @@ class model(object):
         self.NL1 = self.RHS.copy()
 
         t1 = self.t + self.dt/2
-        self.soln1 = self.linearExp*self.soln + self.zeta*self.NL1
+        self.soln1 = self.linearExpHalfDt*self.soln + self.zeta*self.NL1
         self._calc_right_hand_side(self.soln1, t1)
         self.NL2 = self.RHS.copy()
 
-        self.soln2 = self.linearExp*self.soln + self.zeta*self.NL2
+        self.soln2 = self.linearExpHalfDt*self.soln + self.zeta*self.NL2
         self._calc_right_hand_side(self.soln2, t1)
         self.NL3 = self.RHS.copy()
 
         t1 = self.t + self.dt
-        self.soln1 = self.linearExp*self.soln1 + self.zeta*(2.0*self.NL3-self.NL1)
-        self._calc_right_hand_side(self.soln1, t1)
+        self.soln2 = self.linearExpHalfDt*self.soln1 + self.zeta*(2.0*self.NL3-self.NL1)
+        self._calc_right_hand_side(self.soln2, t1)
 
         # The final step
-        self.soln = self.linearExp*self.soln \
-                    +   self.alph * self.NL1 \
-                    + 2*self.beta * (self.NL2 + self.NL3) \
-                    +   self.gamm * self.RHS
+        self.soln = self.linearExpDt*self.soln \
+                    +     self.alph * self.NL1 \
+                    + 2.0*self.beta * (self.NL2 + self.NL3) \
+                    +     self.gamm * self.RHS
