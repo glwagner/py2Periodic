@@ -8,8 +8,8 @@ class model(doublyPeriodic.model):
             name = "twoLayerQuasigeostrophicExample", 
             # Grid parameters
             nx = 256,
-            Lx = 1.0e6,
             ny = None,
+            Lx = 1.0e6,
             Ly = None, 
             # Solver parameters
             t  = 0.0,  
@@ -107,17 +107,18 @@ class model(doublyPeriodic.model):
         self.q2 = self.ifft2(q2h)
 
         self.u1 = -self.ifft2(self.jLL*self.psi1h)
-        self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v1 =  self.ifft2(self.jKK*self.psi1h)
+
+        self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v2 =  self.ifft2(self.jKK*self.psi2h)
 
-        self.RHS[:, :, 0] = - self.jKK*self.fft2(self.u1*self.q1) \
+        self.RHS[:, :, 0] = -self.jKK*self.fft2(self.u1*self.q1) \
                                 - self.jLL*self.fft2(self.v1*self.q1) \
-                                - self.jKK*self.Qy1*self.psi1h
+                                - self.jKK*self.psi1h*self.Qy1
 
-        self.RHS[:, :, 1] = - self.jKK*self.fft2(self.u2*self.q2) \
+        self.RHS[:, :, 1] = -self.jKK*self.fft2(self.u2*self.q2) \
                                 - self.jLL*self.fft2(self.v2*self.q2) \
-                                - self.jKK*self.Qy2*self.psi2h \
+                                - self.jKK*self.psi2h*self.Qy2 \
                                 + self.drag*self.kay2*self.psi2h
 
         self._dealias_RHS()
@@ -132,14 +133,17 @@ class model(doublyPeriodic.model):
         ## Squared deformation wavenumber
         self.kDef2 = self.f0**2.0/self.g \
             * (self.H1 + self.H2)/(self.H1*self.H2)
+        
+        ## Deformation length
+        self.deformationLength = 1.0 / np.sqrt(self.kDef2)
 
         ## Scaled, squared deformation wavenumbers
         self.F1 = self.kDef2 / (1 + self.delta**2.0)
         self.F2 = self.delta * self.F1
 
         ## Meridional background PV gradients
-        self.Qy1 = self.beta + self.F1*(self.U1 - self.U2)
-        self.Qy2 = self.beta - self.F2*(self.U1 - self.U2)
+        self.Qy1 = self.beta - self.F1*(self.U1 - self.U2)
+        self.Qy2 = self.beta + self.F2*(self.U1 - self.U2)
 
         # Square wavenumbers
         self.kay2 = self.KK**2.0 + self.LL**2.0
@@ -176,15 +180,23 @@ class model(doublyPeriodic.model):
         self.q2 = self.ifft2(q2h)
 
         self.u1 = -self.ifft2(self.jLL*self.psi1h)
-        self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v1 =  self.ifft2(self.jKK*self.psi1h)
+
+        self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v2 =  self.ifft2(self.jKK*self.psi2h)
 
     def _invert_for_streamfunctions(self, q1h, q2h):
         """ Given input q1h and q2h, calculate psi1h and psi2h """
-
         self.psi1h = -self.oneOverDetM*((self.kay2 + self.F2)*q1h + self.F1*q2h) 
         self.psi2h = -self.oneOverDetM*(self.F2*q1h + (self.kay2 + self.F2)*q2h)
+
+    def set_q1_q2(self, q1, q2):
+        """ Update the model state by setting q1 and q2 and calculating 
+            state variables """
+        self.soln[:, :, 0] = self.fft2(q1)
+        self.soln[:, :, 1] = self.fft2(q2)
+        self.soln = self._dealias_array(self.soln)
+        self.update_state_variables()
 
     def set_q1(self, q1):
         """ Update the model state by setting q1 and calculating 
@@ -235,10 +247,13 @@ class model(doublyPeriodic.model):
         print("\nThis is a doubly-periodic spectral model for \n" + \
                 "{:s} \n".format(self.physics) + \
                 "with the following attributes:\n\n" + \
-                "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
-                "   Resolution   : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                "   Timestep     : {:.2e} s\n".format(self.dt) + \
-                "   Current time : {:.2e} s\n\n".format(self.t) + \
+                "   Domain             : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
+                "   Resolution         : {:d} X {:d}\n".format(self.nx, self.ny) + \
+                "   Deformation length : {:.2e} m\n".format(self.deformationLength) + \
+                "   Layer depth ratio  : {:.2f} \n".format(self.delta) + \
+                "   Inertial frequency : {:.2e} 1/s\n".format(self.f0) + \
+                "   Timestep           : {:.2e} s\n".format(self.dt) + \
+                "   Current time       : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads) \
         )
 
