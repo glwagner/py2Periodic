@@ -20,7 +20,6 @@ class model(doublyPeriodic.model):
             # 
             # Two-layer parameters:
             ## Physical constants
-            f0 = 1.0e-4,
             beta = 2.0e-11,
             defRadius = 1.5e4, 
             ## Layer-wise parameters
@@ -54,7 +53,6 @@ class model(doublyPeriodic.model):
 
         # Parameters specific to the Physical Problem
         self.name = name
-        self.f0 = f0
         self.beta = beta
         self.defRadius = defRadius
         self.H1 = H1
@@ -86,23 +84,22 @@ class model(doublyPeriodic.model):
     def _set_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
-        # The default model is 2D turbulence with Laplacian viscosity.
         self.linearCoeff[:, :, 0] = self.jKK*self.U1 \
             + self.visc * (self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
 
         self.linearCoeff[:, :, 1] = self.jKK*self.U2 \
             + self.visc * (self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
-       
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of the equation """
-        # View for clarity:
+
         q1h = soln[:, :, 0]
         q2h = soln[:, :, 1]
 
-        # Streamfunction
-        self._invert_for_streamfunctions(q1h, q2h)
+        # Get self.psi1h and self.psi2h
+        self._get_streamfunctions(q1h, q2h)
 
-        # Vorticity and velocity
+        # Vorticity and velocity in real space.
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
@@ -112,10 +109,12 @@ class model(doublyPeriodic.model):
         self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v2 =  self.ifft2(self.jKK*self.psi2h)
 
+        # RHS of the q1-equation
         self.RHS[:, :, 0] = -self.jKK*self.fft2( self.u1*self.q1 ) \
                                 - self.jLL*self.fft2( self.v1*self.q1 ) \
                                 - self.jKK*self.psi1h*self.Q1y
 
+        # RHS of the q2-equation
         self.RHS[:, :, 1] = -self.jKK*self.fft2( self.u2*self.q2 ) \
                                 - self.jLL*self.fft2( self.v2*self.q2 ) \
                                 - self.jKK*self.psi2h*self.Q2y \
@@ -134,14 +133,14 @@ class model(doublyPeriodic.model):
         self.F1 = self.defRadius**(-2.0) / (1 + self.delta)
         self.F2 = self.delta * self.F1
 
-        ## Meridional background PV gradients
+        ## Background meridional PV gradients
         self.Q1y = self.beta + self.F1*(self.U1 - self.U2)
         self.Q2y = self.beta - self.F2*(self.U1 - self.U2)
 
         # Square wavenumbers
         self.kay2 = self.KK**2.0 + self.LL**2.0
 
-        # One over the determinant of the PV-streamfunction inversion matrix
+        # "One over" the determinant of the PV-streamfunction inversion matrix
         detM = self.kay2*(self.kay2 + self.F1 + self.F2)
         detM[0, 0] = float('Inf')
         self.oneOverDetM = 1.0/detM
@@ -166,9 +165,9 @@ class model(doublyPeriodic.model):
         q2h = self.soln[:, :, 1]
 
         # Streamfunction
-        self._invert_for_streamfunctions(q1h, q2h) 
+        self._get_streamfunctions(q1h, q2h) 
             
-        # Vorticity and velocity
+        # Vorticities and velocities
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
@@ -178,12 +177,13 @@ class model(doublyPeriodic.model):
         self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v2 =  self.ifft2(self.jKK*self.psi2h)
 
-    def _invert_for_streamfunctions(self, q1h, q2h):
-        """ Given input q1h and q2h, calculate psi1h and psi2h """
-        self.psi1h = self.oneOverDetM * ( (self.kay2 + self.F2)*q1h + self.F1*q2h ) 
-        self.psi2h = self.oneOverDetM * ( self.F2*q1h + (self.kay2 + self.F2)*q2h )
+    def _get_streamfunctions(self, q1h, q2h):
+        """ Calculate the streamfunctions psi1h and psi2h given the input 
+            PV fields q1h and q2h """
+        self.psi1h = -self.oneOverDetM * ( (self.kay2 + self.F2)*q1h + self.F1*q2h ) 
+        self.psi2h = -self.oneOverDetM * ( self.F2*q1h + (self.kay2 + self.F1)*q2h )
 
-    def set_q1_q2(self, q1, q2):
+    def set_q1_and_q2(self, q1, q2):
         """ Update the model state by setting q1 and q2 and calculating 
             state variables """
         self.soln[:, :, 0] = self.fft2(q1)
@@ -240,9 +240,8 @@ class model(doublyPeriodic.model):
                 "with the following attributes:\n\n" + \
                 "   Domain             : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
                 "   Resolution         : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                "   Deformation length : {:.2e} m\n".format(self.defRadius) + \
+                "   Deformation radius : {:.2e} m\n".format(self.defRadius) + \
                 "   Layer depth ratio  : {:.2f} \n".format(self.delta) + \
-                "   Inertial frequency : {:.2e} 1/s\n".format(self.f0) + \
                 "   Timestep           : {:.2e} s\n".format(self.dt) + \
                 "   Current time       : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads) \
