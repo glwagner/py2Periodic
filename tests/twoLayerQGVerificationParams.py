@@ -39,22 +39,20 @@ pyqgParams = {
 }
 
 # Params for comparing twoLayerQG to Glenn's QG code
-H1 = 1.4610e4
-H2 = 5.0*H1
 glennsParams = { 
     'Lx'         : 1.0e3, 
     'f0'         : 8.64, 
     'beta'       : 1.728e-3,
     'defRadius'  : 40.0, 
-    'H1'         : H1, 
-    'H2'         : H2, 
+    'H1'         : 200, 
+    'H2'         : 1000, 
     'U1'         : 25.0, 
     'U2'         : 5.0, 
     'drag'       : 0.1, 
-    'visc'       : 1.0e-4, 
+    'visc'       : 2.0e4, 
     'viscOrder'  : 4.0, 
-    'nx'         : 128, 
+    'nx'         : 256, 
     'dt'         : 1.0/128.0,
     'timeStepper': 'ETDRK4', 
-    'nThreads'   : 4, 
+    'nThreads'   : 8, 
 }

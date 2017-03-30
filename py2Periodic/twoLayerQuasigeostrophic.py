@@ -87,11 +87,11 @@ class model(doublyPeriodic.model):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
         # The default model is 2D turbulence with Laplacian viscosity.
-        self.linearCoeff[:, :, 0] = self.visc \
-            * (self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
+        self.linearCoeff[:, :, 0] = self.jKK*self.U1 \
+            + self.visc * (self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
 
-        self.linearCoeff[:, :, 1] = self.visc \
-            * (self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
+        self.linearCoeff[:, :, 1] = self.jKK*self.U2 \
+            + self.visc * (self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
        
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of the equation """
@@ -112,13 +112,13 @@ class model(doublyPeriodic.model):
         self.u2 = -self.ifft2(self.jLL*self.psi2h)
         self.v2 =  self.ifft2(self.jKK*self.psi2h)
 
-        self.RHS[:, :, 0] = -self.jKK*self.fft2(self.u1*self.q1) \
-                                - self.jLL*self.fft2(self.v1*self.q1) \
-                                - self.jKK*self.psi1h*self.Qy1
+        self.RHS[:, :, 0] = -self.jKK*self.fft2( self.u1*self.q1 ) \
+                                - self.jLL*self.fft2( self.v1*self.q1 ) \
+                                - self.jKK*self.psi1h*self.Q1y
 
-        self.RHS[:, :, 1] = -self.jKK*self.fft2(self.u2*self.q2) \
-                                - self.jLL*self.fft2(self.v2*self.q2) \
-                                - self.jKK*self.psi2h*self.Qy2 \
+        self.RHS[:, :, 1] = -self.jKK*self.fft2( self.u2*self.q2 ) \
+                                - self.jLL*self.fft2( self.v2*self.q2 ) \
+                                - self.jKK*self.psi2h*self.Q2y \
                                 + self.drag*self.kay2*self.psi2h
 
         self._dealias_RHS()
@@ -135,8 +135,8 @@ class model(doublyPeriodic.model):
         self.F2 = self.delta * self.F1
 
         ## Meridional background PV gradients
-        self.Qy1 = self.beta + self.F1*(self.U1 - self.U2)
-        self.Qy2 = self.beta - self.F2*(self.U1 - self.U2)
+        self.Q1y = self.beta + self.F1*(self.U1 - self.U2)
+        self.Q2y = self.beta - self.F2*(self.U1 - self.U2)
 
         # Square wavenumbers
         self.kay2 = self.KK**2.0 + self.LL**2.0
@@ -180,8 +180,8 @@ class model(doublyPeriodic.model):
 
     def _invert_for_streamfunctions(self, q1h, q2h):
         """ Given input q1h and q2h, calculate psi1h and psi2h """
-        self.psi1h = -self.oneOverDetM*((self.kay2 + self.F2)*q1h + self.F1*q2h) 
-        self.psi2h = -self.oneOverDetM*(self.F2*q1h + (self.kay2 + self.F2)*q2h)
+        self.psi1h = self.oneOverDetM * ( (self.kay2 + self.F2)*q1h + self.F1*q2h ) 
+        self.psi2h = self.oneOverDetM * ( self.F2*q1h + (self.kay2 + self.F2)*q2h )
 
     def set_q1_q2(self, q1, q2):
         """ Update the model state by setting q1 and q2 and calculating 
