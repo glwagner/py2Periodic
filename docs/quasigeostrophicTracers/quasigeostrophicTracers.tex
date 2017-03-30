@@ -121,6 +121,8 @@ _{\smash{\belowbaseline[\subdown]{\scriptstyle#1}}}%
 \newcommand{\mixing}{\mathrm{M}}
 
 \newcommand{\mode}{\phi}
+\newcommand{\q}{\tilde q}
+\newcommand{\qpsi}{\tilde \psi}
 
 \begin{document}
 
@@ -130,8 +132,36 @@ _{\smash{\belowbaseline[\subdown]{\scriptstyle#1}}}%
 
 \section{Preliminaries}
 
-Two-layer quasi-geostrophic flow is governed by
+More or less according to Vallis (2006), two-layer quasi-geostrophic flow is governed by the equations
+\begin{align}
+\q_{1t} + \J \big ( \qpsi_1, \q_1 \big ) &= \friction \big ( \hlap \qpsi_1 \big ) \\
+\q_{2t} + \J \big ( \qpsi_2, \q_2 \big ) &= -r \hlap \qpsi_2 + \friction  \big( \hlap \qpsi_2 \big ) \com 
+\end{align}
+where the potential vorticities $Q_i$ are defined by
+\begin{align}
+\q_{1} &= \hlap \qpsi_1 + F_1 \big ( \qpsi_1 - \qpsi_2 \big ) + \beta y \com \\
+\q_2 &= \hlap \qpsi_2 - F_2 \big ( \qpsi_1 - \qpsi_2 \big ) + \beta y \com
+\end{align}
+and the Burger numbers $F_1$ and $F_2$ are defined by $F_i = f_0^2 / g' H_i$, where $H_i$ is the height of layer $i$ and $g'$ is the reduced gravity. The number of parameters in the problem are reduced if the deformation `radius' $R$ and layer depth ratio $\delta$ are defined through
+\beq  
+R^2 \defn \frac{g' H_1 H_2}{f_0^2 \left ( H_1 + H_2 \right )} \com \qquad \text{and} \qquad \delta \defn \frac{H_1}{H_2} \com
+\eeq
+so that 
+\beq
+F_1 = \frac{R^{-2}}{1 + \delta} \com \qquad \text{and} \qquad F_2 = \frac{\delta R^{-2}}{1 + \delta} \per
+\eeq
+We decompose $\qpsi_i$ into $\qpsi_i = - U_i y + \psi_i$, so that
+\begin{align}
+\q_1 &= \underbrace{\mystrut{1.4ex}  \beta y - F_1 \big ( U_1 - U_2 \big )}_{\defn Q_1} + \underbrace{\mystrut{1.4ex} \hlap \psi_1 + F_1 ( \psi_1 - \psi_2 )}_{\defn q_1} \com \\
+\q_2 &= \underbrace{\mystrut{1.4ex}  \beta y + F_2 \big ( U_1 - U_2 \big )}_{\defn Q_2} + \underbrace{\mystrut{1.4ex} \hlap \psi_2 - F_2 ( \psi_1 - \psi_2 )}_{\defn q_2} \com
+\end{align}
+The potential vorticity conservation equations become
+\begin{align}
+q_{1t} + \J \left( \psi_1, q_1 \right ) + U_1 q_{1x} + \psi_{1x} Q_{1y} &= \friction \left ( \hlap \psi_1 \right) \com \\
+ q_{2t} + \J \left( \psi_2, q_2 \right ) + U_2 q_{2x} + \psi_{2x} Q_{2y} &= - r \hlap \psi_2 + \friction \left ( \hlap \psi_2 \right) \per
+\end{align}
 
+\section{Linear stability analysis}
 
 \bibliographystyle{jfm}
 \bibliography{refs}
