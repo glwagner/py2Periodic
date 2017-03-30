@@ -22,7 +22,7 @@ class model(doublyPeriodic.model):
             ## Physical constants
             f0 = 1.0e-4,
             beta = 2.0e-11,
-            g = 9.81, 
+            defRadius = 1.5e4, 
             ## Layer-wise parameters
             H1 = 1.0e3,
             H2 = 1.0e3,
@@ -56,7 +56,7 @@ class model(doublyPeriodic.model):
         self.name = name
         self.f0 = f0
         self.beta = beta
-        self.g = g
+        self.defRadius = defRadius
         self.H1 = H1
         self.H2 = H2
         self.U1 = U1
@@ -130,20 +130,13 @@ class model(doublyPeriodic.model):
         ## Layer depth ratio
         self.delta = self.H1/self.H2
 
-        ## Squared deformation wavenumber
-        self.kDef2 = self.f0**2.0/self.g \
-            * (self.H1 + self.H2)/(self.H1*self.H2)
-        
-        ## Deformation length
-        self.deformationLength = 1.0 / np.sqrt(self.kDef2)
-
         ## Scaled, squared deformation wavenumbers
-        self.F1 = self.kDef2 / (1 + self.delta**2.0)
+        self.F1 = self.defRadius**(-2.0) / (1 + self.delta)
         self.F2 = self.delta * self.F1
 
         ## Meridional background PV gradients
-        self.Qy1 = self.beta - self.F1*(self.U1 - self.U2)
-        self.Qy2 = self.beta + self.F2*(self.U1 - self.U2)
+        self.Qy1 = self.beta + self.F1*(self.U1 - self.U2)
+        self.Qy2 = self.beta - self.F2*(self.U1 - self.U2)
 
         # Square wavenumbers
         self.kay2 = self.KK**2.0 + self.LL**2.0
@@ -201,7 +194,6 @@ class model(doublyPeriodic.model):
     def set_q1(self, q1):
         """ Update the model state by setting q1 and calculating 
             state variables """
-
         self.soln[:, :, 0] = self.fft2(q1)
         self.soln = self._dealias_array(self.soln)
         self.update_state_variables()
@@ -209,7 +201,6 @@ class model(doublyPeriodic.model):
     def set_q2(self, q2):
         """ Update the model state by setting q2 and calculating 
             state variables """
-
         self.soln[:, :, 1] = self.fft2(q2)
         self.soln = self._dealias_array(self.soln)
         self.update_state_variables()
@@ -249,7 +240,7 @@ class model(doublyPeriodic.model):
                 "with the following attributes:\n\n" + \
                 "   Domain             : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
                 "   Resolution         : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                "   Deformation length : {:.2e} m\n".format(self.deformationLength) + \
+                "   Deformation length : {:.2e} m\n".format(self.defRadius) + \
                 "   Layer depth ratio  : {:.2f} \n".format(self.delta) + \
                 "   Inertial frequency : {:.2e} 1/s\n".format(self.f0) + \
                 "   Timestep           : {:.2e} s\n".format(self.dt) + \
