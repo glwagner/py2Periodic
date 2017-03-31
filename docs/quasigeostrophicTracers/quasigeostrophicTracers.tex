@@ -163,6 +163,13 @@ q_{1t} + \J \left( \psi_1, q_1 \right ) + U_1 q_{1x} + \psi_{1x} Q_{1y} &= \fric
 
 \section{Linear stability analysis}
 
+\section{Numerics}
+
+When we compute the right hand side, we either dealias or use an exponential filter of the form
+\beq
+\mathscr{F} = \exp \Big \{ - d \left [ \left ( k / k_c \right )^2 + \left ( \ell / \ell_c \right )^2 - 1 \right ]^{n/2} \Big \} \per
+\eeq
+
 \bibliographystyle{jfm}
 \bibliography{refs}
 

@@ -17,6 +17,7 @@ class model(doublyPeriodic.model):
             step = 0, 
             timeStepper = "RK4",            # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
+            useFilter = False,
             # 
             # Two-layer parameters:
             ## Physical constants
@@ -49,6 +50,7 @@ class model(doublyPeriodic.model):
             step = step,                    # Current step
             timeStepper = timeStepper,      # Time-stepping method
             nThreads = nThreads,            # Number of threads for FFTW
+            useFilter = useFilter,
         )
 
         # Parameters specific to the Physical Problem

@@ -87,28 +87,16 @@ class model(object):
         if self.useFilter:
             # Specify filter parameters
             filterOrder = 4.0
-            cutOffFrac = 0.65
-
-            KKmax = self.kk.max()
-            LLmax = self.ll.max()
-
-            KKcutOff = cutOffFrac * KKmax
-            LLcutOff = cutOffFrac * LLmax
-            
-            # Set decay rate so filter < eps when KK/KKmax + LL/LLmax > 1.
-            decayRate = 14.0 / ( - 1.0 \
-                + (KKmax/KKcutOff)**filterOrder \
-                + (LLmax/LLcutOff)**filterOrder )
+            cutOffK = 0.65 * pi
+            decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
 
             # Construct the filter
-            self.filter = np.zeros(self.specSolnShape, np.dtype('complex128'))
-            self.filter = np.exp( -decayRate*( - 1.0 \
-                + np.abs(self.KK/KKcutOff)**filterOrder \
-                + np.abs(self.LL/LLcutOff)**filterOrder ))
+            nonDimK = np.sqrt( (self.KK*self.dx)**2.0 + (self.LL*self.dy)**2.0 )
+            self.filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
 
             # Set filter to 1 outside pseudo-ovoid filtering range
-            self.filter[ (self.KK/KKcutOff)**filterOrder \
-                + (self.LL/LLcutOff)**filterOrder < 1.0 ] = 1.0
+            self.filter[ (self.KK*self.dx/cutOffK)**2.0 \
+                + (self.LL*self.dy/cutOffK)**2.0 < 1.0 ] = 1.0
 
             # Broadcast to correct size
             self.filter = self.filter[:, :, np.newaxis] \

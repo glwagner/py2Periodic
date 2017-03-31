@@ -34,10 +34,11 @@ myParams = {
     'drag'       : pyqgParams['rek'],
     'nx'         : pyqgParams['nx'],
     'dt'         : pyqgParams['dt'],
-    'visc'       : 1.0e6, 
+    'visc'       : 0.0e6, 
     'viscOrder'  : 4.0, 
     'timeStepper': 'ETDRK4', 
     'nThreads'   : pyqgParams['ntd'],
+    'useFilter'  : True,
 }
 
 m = pyqg.QGModel(**pyqgParams)
