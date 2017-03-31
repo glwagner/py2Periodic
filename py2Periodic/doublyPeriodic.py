@@ -227,8 +227,6 @@ class model(object):
             self.step += 1
 
     def describe_model(self):
-        """ Describe the current model state """
-
         print("\nThis is a doubly-periodic spectral model with the following " + \
                 "attributes:\n\n" + \
                 "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
@@ -241,7 +239,6 @@ class model(object):
     
     ## Forward Euler  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_forwardEuler(self):
-        """ Describe the RKW3 time-stepping method """
         print("""
             The forward Euler time-stepping method is a simple 1st-order explicit \n
             method with poor stability characteristics. It is described, among \n
@@ -249,17 +246,15 @@ class model(object):
               """)
 
     def _init_time_stepper_forwardEuler(self):
-        """ No variables to be initialized for forward Euler """
         pass
 
     def _step_forward_forwardEuler(self):
-        """ March system forward in time using forward Euler scheme """
+        """ Step the solution forward in time using the forward Euler scheme """
         self._calc_right_hand_side(self.soln, self.t)
         self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
 
-    ## RKW3 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    ## Low-storage Runge-Kutta-Wray-theta scheme - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RKW3(self):
-        """ Describe the RKW3 time-stepping method """
         print("""
             RKW3, or more completely, RKW3-theta, is the 3rd-order low-storage \n
             Runge-Kutta-Wray time-stepping method. It may be semi-implicit, but \n
@@ -268,7 +263,7 @@ class model(object):
               """)
 
     def _init_time_stepper_RKW3(self):
-        """ Initialize and allocate vars for RK3W time-marching """
+        """ Initialize and allocate vars for RK3W time-stepping """
 
         self.a1, self.a2, self.a3 = 29./96., -3./40., 1./6.
         self.b1, self.b2, self.b3 = 37./160., 5./24., 1./6.
@@ -285,7 +280,7 @@ class model(object):
         self.NL2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
     def _step_forward_RKW3(self):
-        """ March the system forward in time using a RKW3-theta scheme """
+        """ Step the solution forward in time using the RKW3 scheme """
 
         self._calc_right_hand_side(self.soln, self.t)
         self.NL1 = self.RHS.copy()
@@ -306,53 +301,62 @@ class model(object):
         self.soln = (self.L3*self.soln + self.c3*self.dt*self.NL1 \
                     + self.d2*self.dt*self.NL2).copy()
 
-    ## RK4  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    ## 4th-order Runge-Kutta (RK4)  - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RK4(self):
-        """ Describe the RK4 time-stepping method """
         print("""
             RK4 is the classical explicit 4th-order Runge-Kutta time-stepping \n
-            method. It is described, among other places, in Bewley's Numerical \n
+            method. It uses a series of substeps/estimators to achieve 4th-order \n 
+            accuracy over each individual time-step, at the cost of requiring \n
+            relatively more evaluations of the nonlinear right hand side. \n
+            It is described, among other places, in Bewley's Numerical \n
             Renaissance.
               """)
 
-    def _step_forward_RK4(self):
-        """ March the system forward using a ETDRK4 scheme """
-
-        self._calc_right_hand_side(self.soln, self.t)
-        self.NL1 = self.RHS - self.linearCoeff*self.soln
-
-        t1 = self.t + self.dt/2
-        self.soln1 = self.soln + self.dt/2.0*self.NL1
-        self._calc_right_hand_side(self.soln1, t1) 
-        self.NL2 = self.RHS - self.linearCoeff*self.soln1
-
-        self.soln1 = self.soln + self.dt/2.0*self.NL2
-        self._calc_right_hand_side(self.soln1, t1) 
-        self.NL3 = self.RHS - self.linearCoeff*self.soln1
-
-        t1 = self.t + self.dt
-        self.soln1 = self.soln + self.dt*self.NL3
-        self._calc_right_hand_side(self.soln1, t1) 
-        self.NL4 = self.RHS - self.linearCoeff*self.soln1
-
-        self.soln += self.dt*(   1.0/6.0*self.NL1 + 1.0/3.0*self.NL2 \
-                               + 1.0/3.0*self.NL3 + 1.0/6.0*self.NL4 )
-
     def _init_time_stepper_RK4(self):
-        """ Initialize and allocate vars for RK4 time-marching """
+        """ Initialize and allocate vars for RK4 time-stepping """
 
         # Allocate intermediate solution variable
         self.soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
         # Allocate nonlinear terms
-        self.NL1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.NL2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.NL3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.NL4 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.RHS1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.RHS2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.RHS3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
-    ## ETDRK4 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    def _step_forward_RK4(self):
+        """ Step the solution forward in time using the RK4 scheme """
+
+        # Substep 1
+        self._calc_right_hand_side(self.soln, self.t)
+        self.RHS1 = self.RHS - self.linearCoeff*self.soln
+
+        # Substep 2
+        t1 = self.t + self.dt/2.0
+        self.soln1 = self.soln + self.dt/2.0*self.RHS1
+
+        self._calc_right_hand_side(self.soln1, t1) 
+        self.RHS2 = self.RHS - self.linearCoeff*self.soln1
+
+        # Substep 3
+        self.soln1 = self.soln + self.dt/2.0*self.RHS2
+
+        self._calc_right_hand_side(self.soln1, t1) 
+        self.RHS3 = self.RHS - self.linearCoeff*self.soln1
+
+        # Substep 4
+        t1 = self.t + self.dt
+        self.soln1 = self.soln + self.dt*self.RHS3
+
+        self._calc_right_hand_side(self.soln1, t1) 
+        self.RHS -= self.linearCoeff*self.soln1
+
+        # Final step
+        self.soln += self.dt*(   1.0/6.0*self.RHS1 + 1.0/3.0*self.RHS2 \
+                               + 1.0/3.0*self.RHS3 + 1.0/6.0*self.RHS )
+
+    
+    ## 4th Order Runge-Kutta Exponential Time Differenceing (ETDRK4)  - - - - - 
     def _describe_time_stepper_ETDRK4(self):
-        """ Describe the ETDRK4 time-stepping method """
         print("""
             ETDRK4 is a 4th-order Runge-Kutta exponential time-differencing \n
             method described by Cox and Matthews (2002). The prefactors are \n
@@ -361,7 +365,7 @@ class model(object):
               """)
         
     def _init_time_stepper_ETDRK4(self):
-        """ Initialize and allocate vars for ETDRK4 time-marching """
+        """ Initialize and allocate vars for ETDRK4 time-stepping """
         linearCoeffDt = self.dt*self.linearCoeff
         
         # Calculate coefficients with circular line integral in complex plane
@@ -404,7 +408,7 @@ class model(object):
         self.NL3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
     def _step_forward_ETDRK4(self):
-        """ March the system forward using an ETDRK4 scheme """
+        """ Step the solution forward in time using the ETDRK4 scheme """
         self._calc_right_hand_side(self.soln, self.t)
         self.NL1 = self.RHS.copy()
 
@@ -426,3 +430,38 @@ class model(object):
                     +     self.alph * self.NL1 \
                     + 2.0*self.beta * (self.NL2 + self.NL3) \
                     +     self.gamm * self.RHS
+
+    ## 3rd-order Adams-Bashforth (AB3) - - - - - - - - - - - - - - - - - - - - - 
+    def _describe_time_stepper_AB3(self):
+        print("""
+            AB3 is the 3rd-order explicity Adams-Bashforth scheme, which employs 
+            solutions from prior time-steps to achieve higher-order accuracy   \n
+            over forward Euler. Unlike a multistep method like RK4, the stability
+            properties of AB methods decrease as the order increases.
+              """)
+
+    def _init_time_stepper_AB3(self):
+        """ Initialize and allocate vars for RK4 time-stepping """
+
+        # Allocate right hand sides to be stored from previous steps
+        self.RHSm1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.RHSm2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+
+    def _step_forward_AB3(self):
+        """ Step the solution forward in time using the AB3 scheme """
+
+        # While RHS_{n-2} is unfilled, step forward with foward Euler.
+        if not self.RHSm2.any():
+            self._calc_right_hand_side(self.soln, self.t)
+            self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
+        else:
+            self._calc_right_hand_side(self.soln, self.t)
+            self.RHS -= self.linearCoeff*self.soln
+
+            self.soln +=   23.0/12.0 * self.dt * self.RHS \
+                         - 16.0/12.0 * self.dt * self.RHSm1 \
+                         +  5.0/12.0 * self.dt * self.RHSm2
+
+        # Store RHS for use in future time-steps.
+        self.RHSm2 = self.RHSm1.copy()
+        self.RHSm1 = self.RHS.copy()

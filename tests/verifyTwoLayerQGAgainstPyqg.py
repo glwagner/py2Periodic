@@ -35,8 +35,8 @@ myParams = {
     'nx'         : pyqgParams['nx'],
     'dt'         : pyqgParams['dt'],
     'visc'       : 0.0e6, 
-    'viscOrder'  : 4.0, 
-    'timeStepper': 'ETDRK4', 
+    'viscOrder'  : 2.0, 
+    'timeStepper': 'AB3', 
     'nThreads'   : pyqgParams['ntd'],
     'useFilter'  : True,
 }
