@@ -11,7 +11,7 @@ pyqgParams = {
     'L'         : 1.0e6,
     'beta'      : 1.5e-11,
     'rd'        : 1.5e4,
-    'rek'       : 5.787e-7,
+    'rek'       : 1.0e-7,
     'delta'     : 0.25, 
     'H1'        : 500, 
     'U1'        : 0.025, 
@@ -35,7 +35,7 @@ myParams = {
     'nx'         : pyqgParams['nx'],
     'dt'         : pyqgParams['dt'],
     'visc'       : 0.0e6, 
-    'viscOrder'  : 2.0, 
+    'viscOrder'  : 4.0, 
     'timeStepper': 'AB3', 
     'nThreads'   : pyqgParams['ntd'],
     'useFilter'  : True,
@@ -65,14 +65,14 @@ for snapshot in m.run_with_snapshots(
 
     # Plot qg
     fig = plt.figure('Perturbation vorticity', figsize=(8, 4)); plt.clf()
-    plt.subplot(121); plt.imshow(qg.q1)
-    plt.subplot(122); plt.imshow(qg.q2)
+    plt.subplot(121); plt.imshow(qg.q1) # + qg.Q1y*qg.YY)
+    plt.subplot(122); plt.imshow(qg.q2) # + qg.Q2y*qg.YY)
     plt.pause(0.01), plt.draw()
 
     # Plot pyqg
     plt.figure('pyqg', figsize=(8, 4)); plt.clf()
-    plt.subplot(121); plt.imshow(m.q[0])
-    plt.subplot(122); plt.imshow(m.q[1])
+    plt.subplot(121); plt.imshow(m.q[0]) # + m.Qy1*m.y)
+    plt.subplot(122); plt.imshow(m.q[1]) # + m.Qy2*m.y)
     plt.pause(0.01); plt.draw()
     
 print("Close the plot to end the program")

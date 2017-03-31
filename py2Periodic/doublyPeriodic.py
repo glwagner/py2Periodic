@@ -87,16 +87,19 @@ class model(object):
         if self.useFilter:
             # Specify filter parameters
             filterOrder = 4.0
-            cutOffK = 0.65 * pi
-            decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
+            cutOffK = 0.25*pi
+            decayRate = 18.0*np.log(10.0) / (pi-cutOffK)**filterOrder
 
             # Construct the filter
             nonDimK = np.sqrt( (self.KK*self.dx)**2.0 + (self.LL*self.dy)**2.0 )
             self.filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
 
+            # Sanity check
+            self.filter = np.zeros( self.specVarShape )
+
             # Set filter to 1 outside pseudo-ovoid filtering range
-            self.filter[ (self.KK*self.dx/cutOffK)**2.0 \
-                + (self.LL*self.dy/cutOffK)**2.0 < 1.0 ] = 1.0
+            self.filter[ np.sqrt((self.KK*self.dx)**2.0 \
+                + (self.LL*self.dy)**2.0) < cutOffK ] = 1.0
 
             # Broadcast to correct size
             self.filter = self.filter[:, :, np.newaxis] \
