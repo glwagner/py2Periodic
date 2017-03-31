@@ -24,7 +24,7 @@ class model(object):
             step = 0,                      # Initial or current step of the model
             timeStepper = "forwardEuler",  # Time-stepping method
             nThreads = 1,                  # Number of threads for FFTW
-            useExpFilter = False,          # Use an exponential filter instead of dealiasing.
+            useFilter = False,             # Use exp filter rather than dealias
         ):
 
         # For convenience, use a default square, uniformly-gridded domain when 
@@ -45,7 +45,7 @@ class model(object):
         self.step = step
         self.timeStepper = timeStepper
         self.nThreads = nThreads
-        self.useExpFilter = useExpFilter
+        self.useFilter = useFilter
 
         # Set time-stepping method attributes for the model
         self._describe_time_stepper = getattr(self, 
@@ -84,26 +84,35 @@ class model(object):
         self.linearCoeff = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.RHS         = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
-        if self.useExpFilter:
+        if self.useFilter:
             # Specify filter parameters
             filterOrder = 4.0
+            cutOffFrac = 0.65
 
-            maxK = self.kk.max()
-            maxL = self.ll.max()
+            KKmax = self.kk.max()
+            LLmax = self.ll.max()
 
-            cutOffK = 0.65 * maxK
-            cutOffL = 0.65 * maxL
-            decayRate = 15 / ( (maxK/cutOffK)**order + (maxL/cutOffL)**order - 1 )
+            KKcutOff = cutOffFrac * KKmax
+            LLcutOff = cutOffFrac * LLmax
+            
+            # Set decay rate so filter < eps when KK/KKmax + LL/LLmax > 1.
+            decayRate = 14.0 / ( - 1.0 \
+                + (KKmax/KKcutOff)**filterOrder \
+                + (LLmax/LLcutOff)**filterOrder )
 
             # Construct the filter
             self.filter = np.zeros(self.specSolnShape, np.dtype('complex128'))
-            self.filter = np.exp( -decayRate*( \
-                  np.abs(self.KK/cutOffK)**filterOrder \
-                + np.abs(self.LL/cutOffL)**filterOrder - 1 \
-            ))
+            self.filter = np.exp( -decayRate*( - 1.0 \
+                + np.abs(self.KK/KKcutOff)**filterOrder \
+                + np.abs(self.LL/LLcutOff)**filterOrder ))
 
-            # Set filter to 1 outside filtering range
-            self.filter[ (self.KK/cutOffK)**2.0 + (self.LL/cutOffL)**2.0 < 1 ] = 1.0
+            # Set filter to 1 outside pseudo-ovoid filtering range
+            self.filter[ (self.KK/KKcutOff)**filterOrder \
+                + (self.LL/LLcutOff)**filterOrder < 1.0 ] = 1.0
+
+            # Broadcast to correct size
+            self.filter = self.filter[:, :, np.newaxis] \
+                * np.ones((1, 1, self.nVars))
 
 
     def _init_physical_grid(self):
@@ -170,7 +179,7 @@ class model(object):
 
     def _dealias_RHS(self):
         """ Dealias the RHS """
-        if self.useExpFilter
+        if self.useFilter:
             self.RHS *= self.filter
         elif self.realVars:
             self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
@@ -181,8 +190,8 @@ class model(object):
 
     def _dealias_array(self, array):
         """ Dealias the Fourier transform of a real array """
-        if self.useExpFilter
-            array *= self.filter[:, :, 0]
+        if self.useFilter:
+            array *= self.filter
         if self.realVars:
             array[self.nx//3:2*self.nx//3, :, :] = 0.0
             array[:, self.ny//3:, :] = 0.0
