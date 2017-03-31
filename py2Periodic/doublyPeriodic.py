@@ -85,17 +85,18 @@ class model(object):
         self.RHS         = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
         if self.useFilter:
+            # Initialize
+            self.filter = np.zeros( self.specVarShape )
+
             # Specify filter parameters
             filterOrder = 4.0
-            cutOffK = 0.25*pi
-            decayRate = 18.0*np.log(10.0) / (pi-cutOffK)**filterOrder
+            cutOffK = 0.65*pi
+            decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
 
             # Construct the filter
             nonDimK = np.sqrt( (self.KK*self.dx)**2.0 + (self.LL*self.dy)**2.0 )
             self.filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
 
-            # Sanity check
-            self.filter = np.zeros( self.specVarShape )
 
             # Set filter to 1 outside pseudo-ovoid filtering range
             self.filter[ np.sqrt((self.KK*self.dx)**2.0 \
@@ -183,7 +184,7 @@ class model(object):
         """ Dealias the Fourier transform of a real array """
         if self.useFilter:
             array *= self.filter
-        if self.realVars:
+        elif self.realVars:
             array[self.nx//3:2*self.nx//3, :, :] = 0.0
             array[:, self.ny//3:, :] = 0.0
         else:
