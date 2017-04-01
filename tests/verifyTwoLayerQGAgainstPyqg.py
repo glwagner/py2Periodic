@@ -34,7 +34,7 @@ myParams = {
     'drag'       : pyqgParams['rek'],
     'nx'         : pyqgParams['nx'],
     'dt'         : pyqgParams['dt'],
-    'visc'       : 0.0e6, 
+    'visc'       : 1.0e6, 
     'viscOrder'  : 4.0, 
     'timeStepper': 'AB3', 
     'nThreads'   : pyqgParams['ntd'],
@@ -52,20 +52,6 @@ q2 = Ro*f0*np.random.standard_normal((m.ny, m.nx))
 
 m.set_q1q2(q1, q2) 
 qg.set_q1_and_q2(q1, q2)
-
-fig = plt.figure('Sanity checks', figsize=(3, 6)); plt.clf()
-plt.pcolormesh(np.fft.fftshift(np.log(qg.filter[:, :, 0]), axes=0))
-plt.colorbar(); plt.clim(-15.0, 0.0)
-plt.pause(0.01)
-raw_input("Press enter to continue.")
-
-plt.pcolormesh(np.fft.fftshift(np.abs(qg.fft2(q1)), axes=0))
-plt.pause(0.01)
-raw_input("Press enter to continue.")
-
-plt.pcolormesh(np.log(np.fft.fftshift(np.abs(qg.soln[..., 0])), axes=0))
-plt.pause(0.01)
-raw_input("Press enter to continue.")
 
 # Run models, interleaved within one another.
 nt = 1e3

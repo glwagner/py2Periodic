@@ -97,7 +97,6 @@ class model(object):
             nonDimK = np.sqrt( (self.KK*self.dx)**2.0 + (self.LL*self.dy)**2.0 )
             self.filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
 
-
             # Set filter to 1 outside pseudo-ovoid filtering range
             self.filter[ np.sqrt((self.KK*self.dx)**2.0 \
                 + (self.LL*self.dy)**2.0) < cutOffK ] = 1.0
