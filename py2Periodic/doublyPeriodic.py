@@ -1,38 +1,23 @@
 import numpy as np; from numpy import pi
-import pyfftw, time
-try:
-    import mkl
-    usingMKL = True
-    np.use_fastnumpy = True
-except ImportError:
-    usingMKL = False
+import pyfftw, mkl, time
 
 class model(object):
-    def __init__(
-            self,
-            physics = None,
-            nVars = 1,
-            realVars = False,
-            # Grid parameters
-            nx = 64,
-            Lx = 2.0*pi, 
-            ny = None,
-            Ly = None, 
+    def __init__(self, physics = None, nVars = 1, realVars = False,
+            # Grid resolution and extent
+            nx = 64, ny = None, Lx = 2.0*pi, Ly = None, 
             # Solver parameters
             t  = 0.0,  
-            dt = 1.0,                      # Fixed numerical time-step.
+            dt = 1.0e-2,                   # Fixed numerical time-step.
             step = 0,                      # Initial or current step of the model
             timeStepper = "forwardEuler",  # Time-stepping method
             nThreads = 1,                  # Number of threads for FFTW
             useFilter = False,             # Use exp filter rather than dealias
         ):
 
-        # For convenience, use a default square, uniformly-gridded domain when 
-        # user specifies only nx or Lx
-        if ny is None: ny = nx
+        # Default grid is square when user specifes only nx
         if Ly is None: Ly = Lx
+        if ny is None: ny = nx
 
-        # Assign initial parameters
         self.physics = physics
         self.nx = nx
         self.ny = ny
@@ -47,7 +32,7 @@ class model(object):
         self.nThreads = nThreads
         self.useFilter = useFilter
 
-        # Set time-stepping method attributes for the model
+        # Set the default time-stepping method attributes for the model
         self._describe_time_stepper = getattr(self, 
             "_describe_time_stepper_{}".format(self.timeStepper))
         self._init_time_stepper = getattr(self, 
@@ -55,20 +40,44 @@ class model(object):
         self._step_forward = getattr(self, 
             "_step_forward_{}".format(self.timeStepper))
 
-        # Initialize numpy's multithreading
-        if usingMKL:
-            mkl.set_num_threads(self.nThreads)
+        # Initialize fastnumpy and numpy multithreading
+        np.use_fastnumpy = True
+        mkl.set_num_threads(self.nThreads)
 
-        # Call initialization routines for the doubly-periodic model
-        self._init_physical_grid()
-        self._init_spectral_grid()
+        # Initialize the grid, transform methods, and miscellanous parameters
+        self._init_numerical_parameters()
         self._init_fft()
-        self._init_shapes_and_vars()
 
-    # Hidden methods  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def _init_shapes_and_vars(self):
-        """ Define shapes of physical and spectral variables and initialize
-            solution, the left-side linear coeffient, and the right hand side """
+    # Initialization methods  - - - - - - - - - - - - - - - - - - - - - - - - - 
+    def _init_numerical_parameters(self):
+        """ Define the grid, initialize core variables, and initialize 
+            miscallenous model parameters. """
+
+        # Physical grid
+        self.dx = self.Lx/self.nx
+        self.dy = self.Ly/self.ny
+
+        xx = np.arange(0.0, self.Lx, self.dx)
+        yy = np.arange(0.0, self.Ly, self.dy)
+
+        self.x, self.y = np.meshgrid(xx, yy)
+
+        # Spectral grid
+        self.dk = 2.0*pi/self.Lx
+        self.dl = 2.0*pi/self.Ly
+
+        if self.realVars: 
+            kk = self.dk*np.arange(0.0, self.nx/2.0+1.0)
+        else: 
+            kk = self.dk*np.append(np.arange(0.0, self.nx/2.0),
+                np.arange(-self.nx/2.0, 0.0) )
+
+        ll = self.dl*np.append(np.arange(0.0, self.ny/2.0),
+            np.arange(-self.ny/2.0, 0.0) )
+
+        self.KK, self.LL = np.meshgrid(kk, ll)
+
+        # Create tuples with shapes of physical and spectral variables
         self.physVarShape = (self.ny, self.nx)
         self.physSolnShape = (self.ny, self.nx, self.nVars)
 
@@ -84,8 +93,8 @@ class model(object):
         self.linearCoeff = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.RHS         = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
+        # Initialize the spectral filter if it is being used.
         if self.useFilter:
-            # Initialize
             self.filter = np.zeros( self.specVarShape )
 
             # Specify filter parameters
@@ -105,45 +114,9 @@ class model(object):
             self.filter = self.filter[:, :, np.newaxis] \
                 * np.ones((1, 1, self.nVars))
 
-
-    def _init_physical_grid(self):
-        """ Initialize the physical grid """
-
-        # Grid spacing
-        self.dx = self.Lx/self.nx
-        self.dy = self.Ly/self.ny
-
-        self.xx = np.arange(0.0, self.Lx, self.dx)
-        self.yy = np.arange(0.0, self.Ly, self.dy)
-
-        # Two-dimensional grid space arrays
-        self.XX, self.YY = np.meshgrid(self.xx, self.yy)
-
-    def _init_spectral_grid(self):
-        """ Initialize the spectral grid"""
-
-        # Grid spacing
-        self.dk = 2.0*pi/self.Lx
-        self.dl = 2.0*pi/self.Ly
-
-        self.ll = self.dl*np.append(np.arange(0.0, self.ny/2),
-                                        np.arange(-self.ny/2, 0.0) )
-    
-        if self.realVars:
-            self.kk = self.dk*np.arange(0.0, self.nx/2+1)
-        else:
-            self.kk = self.dk*np.append(np.arange(0.0, self.nx/2),
-                                        np.arange(-self.nx/2, 0.0) )
-
-        # Two-dimensional wavenumber arrays
-        self.KK, self.LL = np.meshgrid(self.kk, self.ll)
-
-        # Pre-computed products of 1j and wavenumber arrays
-        self.jKK = 1j*self.KK
-        self.jLL = 1j*self.LL
-
     def _init_fft(self):
         """ Initialize the fast Fourier transform routine. """
+
         pyfftw.interfaces.cache.enable() 
 
         if self.realVars:
@@ -160,16 +133,25 @@ class model(object):
             self.ifft2 = (lambda x :
                     pyfftw.interfaces.numpy_fft.ifft2(x, threads=self.nThreads, \
                             planner_effort='FFTW_ESTIMATE'))
-            
-    def _print_status(self):
-        """ Print model status """
-        tc = time.time() - self.timer
-        print("step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
-                "t = {:.2e} s".format(self.t))
-        self.timer = time.time()
 
+    def set_physical_soln(self, soln):
+        """ Initialize model with a physical space solution """ 
+
+        for iVar in np.arange(self.nVars):
+            self.soln[:, :, iVar] = self.fft2(soln[:, :, iVar])
+
+        self.soln = self._dealias_array(self.soln)
+        self.update_state_variables()
+
+    def set_spectral_soln(self, soln):
+        """ Initialize model with a spectral space solution """ 
+
+        self.soln = soln
+        self.soln = self._dealias_array(self.soln)
+        self.update_state_variables()
+            
+    # Methods for model operation - - - - - - - - - - - - - - - - - - - - - - - 
     def _dealias_RHS(self):
-        """ Dealias the RHS """
         if self.useFilter:
             self.RHS *= self.filter
         elif self.realVars:
@@ -180,7 +162,8 @@ class model(object):
             self.RHS[:, self.nx//3:2*self.nx//3, :] = 0.0
 
     def _dealias_array(self, array):
-        """ Dealias the Fourier transform of a real array """
+        """ Dealias the Fourier transform of an array """
+
         if self.useFilter:
             array *= self.filter
         elif self.realVars:
@@ -192,69 +175,79 @@ class model(object):
         
         return array
 
-    # Visible methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def set_physical_soln(self, soln):
-        """ Initialize model with a physical space solution """ 
-        for iVar in np.arange(self.nVars):
-            self.soln[:, :, iVar] = self.fft2(soln[:, :, iVar])
-
-        self.soln = self._dealias_array(self.soln)
-        self.update_state_variables()
-
-    def set_spectral_soln(self, soln):
-        """ Initialize model with a spectral space solution """ 
-        self.soln = soln
-        self.soln = self._dealias_array(self.soln)
-        self.update_state_variables()
-
-    def run_nSteps(self, nSteps=1e2, dnLog=None):
+    def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """
-        # Initialize run
-        step0 = self.step
 
-        if dnLog is None: dnLog = np.floor(nSteps/10.0)
-         
-        if step0 == 0:
-            self.timer = time.time()
-        elif not hasattr(self, 'timer'):
-            self.timer = time.time()
+        if not hasattr(self, 'timer'): self.timer = time.time()
 
-        # Step forward
-        while (self.step < step0+nSteps):
+        for substep in xrange(int(nSteps)):
             self._step_forward()
-
-            if self.step > 0 and self.step % dnLog == 0.0:
+            if (substep+1) % dnLog == 0.0:
                 self._print_status()
 
-            self.t += self.dt
-            self.step += 1
+    def step_until(self, stopTime=None, dnLog=float('Inf')):
+        """ Step forward nStep times """
 
+        if not hasattr(self, 'timer'): self.timer = time.time()
+        if stopTime is None: stopTime = step.t + 10.0*self.dt
+        if stopTime < self.t: 
+            print("\nThe stop time is less than the current time! " \
+                "The model will not step forward.\n")
+
+        substep = 0
+        while True:
+            if self.t >= stopTime: break
+            elif step.t + self.dt > stopTime:
+                # This hook handles cases where the planned final step will 
+                # overshoot the stopTime. In this case, ten small steps are 
+                # carried out with the forward Euler scheme to finish the run.
+                finalSteps = 10
+                finalDt = (stopTime - self.t) / float(finalSteps)
+                for step in xrange(finalSteps): 
+                    self._step_forward_forwardEuler(dt=finalDt)
+                break
+            else:
+                self._step_forward()
+                substep += 1
+                if (substep+1) % dnLog == 0.0:
+                    self._print_status()
+
+    def _print_status(self):
+        """ Print model status """
+        tc = time.time() - self.timer
+        print("step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
+                "t = {:.2e} s".format(self.t))
+        self.timer = time.time()
+
+    # Miscellaneous - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_model(self):
         print("\nThis is a doubly-periodic spectral model with the following " + \
                 "attributes:\n\n" + \
                 "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
-                "   Resolution   : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                "   Timestep     : {:.2e} s\n".format(self.dt) + \
+                "   Grid         : {:d} X {:d}\n".format(self.nx, self.ny) + \
                 "   Current time : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads))
 
     # Time steppers for the doublyPeriodicModel class - - - - - - - - - - - - - 
-    
     ## Forward Euler  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_forwardEuler(self):
         print("""
-            The forward Euler time-stepping method is a simple 1st-order explicit \n
-            method with poor stability characteristics. It is described, among \n
-            other places, in Bewley's Numerical Renaissance.
+            The forward Euler time-stepping method is a simple 1st-order 
+            explicit method with poor stability characteristics. It is \n
+            described, among other places, in Bewley's Numerical Renaissance.\n
               """)
 
     def _init_time_stepper_forwardEuler(self):
         pass
 
-    def _step_forward_forwardEuler(self):
+    def _step_forward_forwardEuler(self, dt=None):
         """ Step the solution forward in time using the forward Euler scheme """
+        if dt is None: dt=self.dt
+
         self._calc_right_hand_side(self.soln, self.t)
-        self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
+        self.soln += dt*(self.RHS - self.linearCoeff*self.soln)
+        self.t += dt
+        self.step += 1
 
     ## Low-storage Runge-Kutta-Wray-theta scheme - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RKW3(self):
@@ -303,6 +296,8 @@ class model(object):
 
         self.soln = (self.L3*self.soln + self.c3*self.dt*self.NL1 \
                     + self.d2*self.dt*self.NL2).copy()
+        self.t += self.dt
+        self.step += 1
 
     ## 4th-order Runge-Kutta (RK4)  - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RK4(self):
@@ -326,36 +321,40 @@ class model(object):
         self.RHS2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.RHS3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
-    def _step_forward_RK4(self):
+    def _step_forward_RK4(self, dt=None):
         """ Step the solution forward in time using the RK4 scheme """
+
+        if dt is None: dt=self.dt
 
         # Substep 1
         self._calc_right_hand_side(self.soln, self.t)
         self.RHS1 = self.RHS - self.linearCoeff*self.soln
 
         # Substep 2
-        t1 = self.t + self.dt/2.0
-        self.soln1 = self.soln + self.dt/2.0*self.RHS1
+        t1 = self.t + dt/2.0
+        self.soln1 = self.soln + dt/2.0*self.RHS1
 
         self._calc_right_hand_side(self.soln1, t1) 
         self.RHS2 = self.RHS - self.linearCoeff*self.soln1
 
         # Substep 3
-        self.soln1 = self.soln + self.dt/2.0*self.RHS2
+        self.soln1 = self.soln + dt/2.0*self.RHS2
 
         self._calc_right_hand_side(self.soln1, t1) 
         self.RHS3 = self.RHS - self.linearCoeff*self.soln1
 
         # Substep 4
-        t1 = self.t + self.dt
-        self.soln1 = self.soln + self.dt*self.RHS3
+        t1 = self.t + dt
+        self.soln1 = self.soln + dt*self.RHS3
 
         self._calc_right_hand_side(self.soln1, t1) 
         self.RHS -= self.linearCoeff*self.soln1
 
         # Final step
-        self.soln += self.dt*(   1.0/6.0*self.RHS1 + 1.0/3.0*self.RHS2 \
-                               + 1.0/3.0*self.RHS3 + 1.0/6.0*self.RHS )
+        self.soln += dt*(   1.0/6.0*self.RHS1 + 1.0/3.0*self.RHS2 \
+                          + 1.0/3.0*self.RHS3 + 1.0/6.0*self.RHS )
+        self.t += dt
+        self.step += 1
 
     
     ## 4th Order Runge-Kutta Exponential Time Differenceing (ETDRK4)  - - - - - 
@@ -369,14 +368,14 @@ class model(object):
         
     def _init_time_stepper_ETDRK4(self):
         """ Initialize and allocate vars for ETDRK4 time-stepping """
-        linearCoeffDt = self.dt*self.linearCoeff
-        
+
         # Calculate coefficients with circular line integral in complex plane
         nCirc = 32          
         rCirc = 1.0       
         circ = rCirc*np.exp(2j*pi*(np.arange(1, nCirc+1)-1/2)/nCirc) 
 
         # Circular contour around the point to be calculated
+        linearCoeffDt = self.dt*self.linearCoeff
         zc = -linearCoeffDt[..., np.newaxis] \
                 + circ[np.newaxis, np.newaxis, np.newaxis, ...]
 
@@ -412,6 +411,7 @@ class model(object):
 
     def _step_forward_ETDRK4(self):
         """ Step the solution forward in time using the ETDRK4 scheme """
+
         self._calc_right_hand_side(self.soln, self.t)
         self.NL1 = self.RHS.copy()
 
@@ -425,7 +425,8 @@ class model(object):
         self.NL3 = self.RHS.copy()
 
         t1 = self.t + self.dt
-        self.soln2 = self.linearExpHalfDt*self.soln1 + self.zeta*(2.0*self.NL3-self.NL1)
+        self.soln2 = self.linearExpHalfDt*self.soln1 \
+            + self.zeta*(2.0*self.NL3-self.NL1)
         self._calc_right_hand_side(self.soln2, t1)
 
         # The final step
@@ -433,18 +434,20 @@ class model(object):
                     +     self.alph * self.NL1 \
                     + 2.0*self.beta * (self.NL2 + self.NL3) \
                     +     self.gamm * self.RHS
+        self.t += self.dt
+        self.step += 1
 
     ## 3rd-order Adams-Bashforth (AB3) - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_AB3(self):
         print("""
             AB3 is the 3rd-order explicity Adams-Bashforth scheme, which employs 
             solutions from prior time-steps to achieve higher-order accuracy   \n
-            over forward Euler. Unlike a multistep method like RK4, the stability
-            properties of AB methods decrease as the order increases.
+            over forward Euler. AB3 is faster, but has a smaller linear \n
+            region compared to RK4.
               """)
 
     def _init_time_stepper_AB3(self):
-        """ Initialize and allocate vars for RK4 time-stepping """
+        """ Initialize and allocate vars for AB3 time-stepping """
 
         # Allocate right hand sides to be stored from previous steps
         self.RHSm1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
@@ -468,3 +471,6 @@ class model(object):
         # Store RHS for use in future time-steps.
         self.RHSm2 = self.RHSm1.copy()
         self.RHSm1 = self.RHS.copy()
+
+        self.t += self.dt
+        self.step += 1
