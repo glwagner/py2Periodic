@@ -25,7 +25,7 @@ class model(doublyPeriodic.model):
             realVars = True,
             # Persistant doublyPeriodic initialization arguments 
             nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
-            timeStepper = timeStepper, nThreads = nThreads
+            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
 
         # Scalar attributes specific to the Physical Problem
@@ -50,30 +50,29 @@ class model(doublyPeriodic.model):
         print("""
             This model solves the two-dimensional Navier-Stokes equation in \n
             streamfunction-vorticity formulation, with a variable-order \n
-            hyperdissipation operator. There is a single prognostic solution \n
-            variable --- vorticity in Fourier space.
+            hyperdissipation operator. There is a single prognostic \n
+            variable: vorticity in Fourier space.
         """)
 
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
-        # The default model is 2D turbulence with Laplacian viscosity.
-        self.linearCoeff[:, :, 0] = self.visc*(self.KK**2.0 + self.LL**2.0)
+
+        self.linearCoeff[:, :, 0] = \
+            self.visc*(self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
        
     def _calc_right_hand_side(self, soln, t):
-        """ Calculate the nonlinear right hand side of the equation """
-        # View for clarity:
+        """ Calculate the nonlinear right hand side """
+
         qh = soln[:, :, 0]
 
-        # Streamfunction
+        # Transform of streamfunction and physical vorticity and velocity
         self.psih = - qh / self.divideSafeKay2 
-
-        # Vorticity and velocity
         self.q = self.ifft2(qh)
         self.u = -self.ifft2(self.jLL*self.psih)
         self.v =  self.ifft2(self.jKK*self.psih)
 
-        self.RHS[:, :, 0] = - self.jKK*self.fft2(self.u*self.q) \
+        self.RHS[:, :, 0] = -self.jKK*self.fft2(self.u*self.q) \
                                 - self.jLL*self.fft2(self.v*self.q) 
 
         self._dealias_RHS()
@@ -96,13 +95,11 @@ class model(doublyPeriodic.model):
             
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
-        # View for clarity:
+
         qh = self.soln[:, :, 0]
 
-        # Streamfunction
+        # Transform of streamfunction and physical vorticity and velocity
         self.psih = - qh / self.divideSafeKay2 
-
-        # Vorticity and velocity
         self.q = self.ifft2(qh)
         self.u = -self.ifft2(self.jLL*self.psih)
         self.v =  self.ifft2(self.jKK*self.psih)

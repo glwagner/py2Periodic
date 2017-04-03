@@ -1,5 +1,5 @@
 import sys; sys.path.append('../py2Periodic/')
-import twoLayerQuasigeostrophic
+import twoLayerQG
 import numpy as np; from numpy import pi
 import time
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ params = {
     'nx'         : 256, 
     'dt'         : 1.0e4, 
     'timeStepper': 'ETDRK4', 
-    'nThreads'   : 8, 
+    'nThreads'   : 2, 
 }
 
 myParams = { 
@@ -30,21 +30,20 @@ myParams = {
     'U1'         : 2.5e-2, 
     'U2'         : 0.0,
     'drag'       : 1.0e-7,
-    'nx'         : 256,
-    'dt'         : 1.0e4, 
-    'visc'       : 1.0e6, 
+    'nx'         : 128,
+    'dt'         : 2.0e4, 
+    'visc'       : 1.0e8, 
     'viscOrder'  : 4.0, 
-    'timeStepper': 'RK4', 
-    'nThreads'   : 8,
+    'timeStepper': 'AB3', 
+    'nThreads'   : 2,
 }
 
-
 # Create the two-layer model
-qg = twoLayerQuasigeostrophic.model(**myParams)
+qg = twoLayerQG.model(**myParams)
 qg.describe_model()
 
 # Initial condition: 
-Ro = 1.0e-2
+Ro = 1.0e-3
 f0 = 1.0e-4
 q1 = Ro*f0*np.random.standard_normal(qg.physVarShape)
 q2 = Ro*f0*np.random.standard_normal(qg.physVarShape)
@@ -52,10 +51,10 @@ q2 = Ro*f0*np.random.standard_normal(qg.physVarShape)
 qg.set_q1_and_q2(q1, q2)
 
 # Run a loop
-nt = 1e3
+nt = 5e2
 for ii in np.arange(0, 1e3):
 
-    qg.run_nSteps(nSteps=nt, dnLog=nt)
+    qg.step_nSteps(nSteps=nt, dnLog=nt)
     qg.update_state_variables()
 
     fig = plt.figure('Perturbation vorticity', figsize=(8, 4)); plt.clf()
