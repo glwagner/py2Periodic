@@ -8,7 +8,7 @@ class model(doublyPeriodic.model):
             nx = 256, ny = None, Lx = 1e6, Ly = None, 
             # Solver parameters
             t  = 0.0,  
-            dt = 1.0e2,                     # Numerical timestep
+            dt = 1.0,                       # Numerical timestep
             step = 0, 
             timeStepper = "RK4",            # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
@@ -17,16 +17,16 @@ class model(doublyPeriodic.model):
             # Two-layer parameters:
             ## Physical constants
             f0 = None,
-            beta = 2.0e-11,
+            beta = 2e-11,
             defRadius = 1.5e4, 
             ## Layer-wise parameters
-            H1 = 1.0e3,
-            H2 = 1.0e3,
-            U1 = 1.0e-1,
+            H1 = 1e3,
+            H2 = 1e3,
+            U1 = 1e-1,
             U2 = 0.0,
             ## Friction parameters
             bottomDrag = 0.0,
-            visc = 1.0e0,
+            visc = 1e0,
             viscOrder = 4.0,
             ## Flag to activate bathymetry
             flatBottom = True,
@@ -34,10 +34,10 @@ class model(doublyPeriodic.model):
 
         # Initialize super-class.
         doublyPeriodic.model.__init__(self, 
-            physics = "two-layer quasi-geostrophic flow",
+            physics = "two layer quasi-geostrophic flow",
             nVars = 2, 
             realVars = True,
-            # Persistant doublyPeriodic initialization arguments 
+            # Persistent doublyPeriodic initialization arguments 
             nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
             timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
@@ -65,7 +65,7 @@ class model(doublyPeriodic.model):
 
         # Set the initial condition to default.
         self.set_physical_soln( \
-            1.0e-1*np.random.standard_normal(self.physSolnShape))
+            1e-1*np.random.standard_normal(self.physSolnShape))
         self.update_state_variables()
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -80,10 +80,10 @@ class model(doublyPeriodic.model):
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
-        self.linearCoeff[:, :, 0] = self.__jk*self.U1 \
+        self.linearCoeff[:, :, 0] = self._jk*self.U1 \
             + self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
-        self.linearCoeff[:, :, 1] = self.__jk*self.U2 \
+        self.linearCoeff[:, :, 1] = self._jk*self.U2 \
             + self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
     def _init_parameters(self):
@@ -93,7 +93,7 @@ class model(doublyPeriodic.model):
         self.delta = self.H1/self.H2
 
         # Scaled, squared deformation wavenumbers
-        self.F1 = self.defRadius**(-2.0) / (1 + self.delta)
+        self.F1 = self.defRadius**(-2.0) / (1.0 + self.delta)
         self.F2 = self.delta * self.F1
 
         # Background meridional PV gradients
@@ -101,20 +101,20 @@ class model(doublyPeriodic.model):
         self.Q2y = self.beta - self.F2*(self.U1 - self.U2)
 
         # A square wavenumber and various products
-        self.KK = self.k**2.0 + self.l**2.0
+        self.Ksq = self.k**2.0 + self.l**2.0
 
-        self.__jk = 1j*self.k
-        self.__jl = 1j*self.l
+        self._jk = 1j*self.k
+        self._jl = 1j*self.l
 
-        self.__jkQ1y = 1j*self.k*self.Q1y
-        self.__jkQ2y = 1j*self.k*self.Q2y
+        self._jkQ1y = 1j*self.k*self.Q1y
+        self._jkQ2y = 1j*self.k*self.Q2y
 
-        self.__bottomDragKK = self.bottomDrag*self.KK
+        self._bottomDragK = self.bottomDrag*self.Ksq
 
         # "One over" the determinant of the PV-streamfunction inversion matrix
-        detM = self.KK*(self.KK + self.F1 + self.F2)
+        detM = self.Ksq*(self.Ksq + self.F1 + self.F2)
         detM[0, 0] = float('Inf')
-        self.__oneOverDetM = 1.0/detM
+        self._oneOverDetM = 1.0/detM
 
         # Streamfunctions
         self.psi1h = np.zeros(self.physVarShape, np.dtype('complex128'))
@@ -142,22 +142,22 @@ class model(doublyPeriodic.model):
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
-        self.u1 = -self.ifft2(self.__jl*self.psi1h)
-        self.v1 =  self.ifft2(self.__jk*self.psi1h)
+        self.u1 = self.ifft2(-self._jl*self.psi1h)
+        self.v1 = self.ifft2(self._jk*self.psi1h)
 
-        self.u2 = -self.ifft2(self.__jl*self.psi2h)
-        self.v2 =  self.ifft2(self.__jk*self.psi2h)
+        self.u2 = self.ifft2(-self._jl*self.psi2h)
+        self.v2 = self.ifft2(self._jk*self.psi2h)
 
         # Right Hand Side of the q1-equation
-        self.RHS[:, :, 0] = -self.__jk*self.fft2( self.u1*self.q1 ) \
-                                - self.__jl*self.fft2( self.v1*self.q1 ) \
-                                - self.__jkQ1y*self.psi1h
+        self.RHS[:, :, 0] = -self._jk*self.fft2( self.u1*self.q1 ) \
+                                - self._jl*self.fft2( self.v1*self.q1 ) \
+                                - self._jkQ1y*self.psi1h
 
         # Right Hand Side of the q2-equation
-        self.RHS[:, :, 1] = -self.__jk*self.fft2( self.u2*self.q2 ) \
-                                - self.__jl*self.fft2( self.v2*self.q2 ) \
-                                - self.__jkQ2y*self.psi2h \
-                                + self.__bottomDragKK*self.psi2h
+        self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*self.q2 ) \
+                                - self._jl*self.fft2( self.v2*self.q2 ) \
+                                - self._jkQ2y*self.psi2h \
+                                + self._bottomDragK*self.psi2h
 
         self._dealias_RHS()
 
@@ -174,22 +174,25 @@ class model(doublyPeriodic.model):
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
-        self.u1 = -self.ifft2(self.__jl*self.psi1h)
-        self.v1 =  self.ifft2(self.__jk*self.psi1h)
+        self.u1 = -self.ifft2(self._jl*self.psi1h)
+        self.v1 =  self.ifft2(self._jk*self.psi1h)
 
-        self.u2 = -self.ifft2(self.__jl*self.psi2h)
-        self.v2 =  self.ifft2(self.__jk*self.psi2h)
+        self.u2 = -self.ifft2(self._jl*self.psi2h)
+        self.v2 =  self.ifft2(self._jk*self.psi2h)
 
     def _get_streamfunctions(self, q1h, q2h):
         """ Calculate the streamfunctions psi1h and psi2h given the input 
             PV fields q1h and q2h """
 
-        self.psi1h = -self.__oneOverDetM * ((self.KK + self.F2)*q1h + self.F1*q2h) 
-        self.psi2h = -self.__oneOverDetM * (self.F2*q1h + (self.KK + self.F1)*q2h)
+        self.psi1h = -self._oneOverDetM*( (self.Ksq + self.F2)*q1h + self.F1*q2h )
+        self.psi2h = -self._oneOverDetM*( self.F2*q1h + (self.Ksq + self.F1)*q2h )
     
     def set_bathymetry(self, h):
-        """ Set model bathymetry """
-        pass
+        """ Set the topographic PV given an input bathymetry """
+
+        # TODO: Add a warning if f0 is None.
+
+        self.qTop = -self.f0*h / self.H2
 
     def set_q1_and_q2(self, q1, q2):
         """ Update the model state by setting q1 and q2 and calculating 
@@ -198,7 +201,7 @@ class model(doublyPeriodic.model):
         self.soln[:, :, 0] = self.fft2(q1)
         self.soln[:, :, 1] = self.fft2(q2)
 
-        self.soln = self._dealias_array(self.soln)
+        self.soln = self._dealias_soln(self.soln)
         self.update_state_variables()
 
     def set_q1(self, q1):
@@ -206,7 +209,7 @@ class model(doublyPeriodic.model):
             state variables """
 
         self.soln[:, :, 0] = self.fft2(q1)
-        self.soln = self._dealias_array(self.soln)
+        self.soln = self._dealias_soln(self.soln)
         self.update_state_variables()
 
     def set_q2(self, q2):
@@ -214,7 +217,7 @@ class model(doublyPeriodic.model):
             state variables """
 
         self.soln[:, :, 1] = self.fft2(q2)
-        self.soln = self._dealias_array(self.soln)
+        self.soln = self._dealias_soln(self.soln)
         self.update_state_variables()
 
     def _print_status(self):

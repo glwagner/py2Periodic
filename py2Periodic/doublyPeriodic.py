@@ -1,6 +1,13 @@
 import numpy as np; from numpy import pi
 import pyfftw, mkl, time
 
+# TODO 1. Add an exception error for the violation of physical
+#           conditions, if physical parameters are unset, etc.
+# TODO 2. Make more of the defaults 'None' if values for them can
+#           be determined diagnostically, rather than prescribed.
+# TODO 3. For example, set dt=None for default, and specify an adaptive
+#           time-stepper.
+
 class model(object):
     def __init__(self, physics = None, nVars = 1, realVars = False,
             # Grid resolution and extent
@@ -29,8 +36,11 @@ class model(object):
         self.dt = dt
         self.step = step
         self.timeStepper = timeStepper
-        self.nThreads = nThreads
         self.useFilter = useFilter
+
+        # TODO: permit an input 'maximum'; also, if nThreads is
+        # greater than number on the machine, set to number on the machine.
+        self.nThreads = nThreads
 
         # Set the default time-stepping method attributes for the model
         self._describe_time_stepper = getattr(self, 
@@ -99,7 +109,7 @@ class model(object):
 
             # Specify filter parameters
             filterOrder = 4.0
-            cutOffK = 0.65*pi
+            cutOffK = 0.20*pi
             decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
 
             # Construct the filter
@@ -140,14 +150,14 @@ class model(object):
         for iVar in np.arange(self.nVars):
             self.soln[:, :, iVar] = self.fft2(soln[:, :, iVar])
 
-        self.soln = self._dealias_array(self.soln)
+        self.soln = self._dealias_soln(self.soln)
         self.update_state_variables()
 
     def set_spectral_soln(self, soln):
         """ Initialize model with a spectral space solution """ 
 
         self.soln = soln
-        self.soln = self._dealias_array(self.soln)
+        self.soln = self._dealias_soln(self.soln)
         self.update_state_variables()
             
     # Methods for model operation - - - - - - - - - - - - - - - - - - - - - - - 
@@ -161,19 +171,33 @@ class model(object):
             self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
             self.RHS[:, self.nx//3:2*self.nx//3, :] = 0.0
 
-    def _dealias_array(self, array):
-        """ Dealias the Fourier transform of an array """
+    def _dealias_soln(self, soln):
+        """ Dealias the Fourier transform of an soln """
 
         if self.useFilter:
-            array *= self._filter
+            soln *= self._filter
         elif self.realVars:
-            array[self.nx//3:2*self.nx//3, :, :] = 0.0
-            array[:, self.ny//3:, :] = 0.0
+            soln[self.nx//3:2*self.nx//3, :, :] = 0.0
+            soln[:, self.ny//3:, :] = 0.0
         else:
-            array[self.ny//3:2*self.ny//3, :, :] = 0.0
-            array[:, self.nx//3:2*self.nx//3, :] = 0.0
+            soln[self.ny//3:2*self.ny//3, :, :] = 0.0
+            soln[:, self.nx//3:2*self.nx//3, :] = 0.0
         
-        return array
+        return soln
+
+    def _dealias_var(self, var):
+        """ Dealias the Fourier transform of an soln """
+
+        if self.useFilter:
+            var *= self._filter[:, :, 0]
+        elif self.realVars:
+            var[self.nx//3:2*self.nx//3, :] = 0.0
+            var[:, self.ny//3:] = 0.0
+        else:
+            var[self.ny//3:2*self.ny//3, :] = 0.0
+            var[:, self.nx//3:2*self.nx//3] = 0.0
+        
+        return var
 
     def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """

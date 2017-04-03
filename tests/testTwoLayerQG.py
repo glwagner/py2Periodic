@@ -6,23 +6,6 @@ import matplotlib.pyplot as plt
 
 params = { 
     'Lx'         : 1.0e6, 
-    'beta'       : 1.0e-11,
-    'defRadius'  : 1.5e4, 
-    'H1'         : 500, 
-    'H2'         : 2000, 
-    'U1'         : 1.0e-1, 
-    'U2'         : 0.0, 
-    'bottomDrag' : 1.0e-6, 
-    'visc'       : 1.0e6, 
-    'viscOrder'  : 4.0, 
-    'nx'         : 256, 
-    'dt'         : 1.0e4, 
-    'timeStepper': 'ETDRK4', 
-    'nThreads'   : 2, 
-}
-
-myParams = { 
-    'Lx'         : 1.0e6, 
     'beta'       : 1.5e-11, 
     'defRadius'  : 1.5e4, 
     'H1'         : 500.0, 
@@ -30,17 +13,17 @@ myParams = {
     'U1'         : 2.5e-2, 
     'U2'         : 0.0,
     'bottomDrag' : 1.0e-7,
-    'nx'         : 256,
-    'dt'         : 1.0e4, 
+    'nx'         : 128,
+    'dt'         : 1.0e3, 
     'visc'       : 0.0e8, 
     'viscOrder'  : 4.0, 
     'timeStepper': 'AB3', 
-    'nThreads'   : 8,
+    'nThreads'   : 4,
     'useFilter'  : True,
 }
 
 # Create the two-layer model
-qg = twoLayerQG.model(**myParams)
+qg = twoLayerQG.model(**params)
 qg.describe_model()
 
 # Initial condition: 
@@ -52,15 +35,20 @@ q2 = Ro*f0*np.random.standard_normal(qg.physVarShape)
 qg.set_q1_and_q2(q1, q2)
 
 # Run a loop
-nt = 1e2
-for ii in np.arange(0, 1e1):
+nt = 1e4
+for ii in np.arange(0, 1e3):
 
     qg.step_nSteps(nSteps=nt, dnLog=nt)
     qg.update_state_variables()
 
-    fig = plt.figure('Perturbation vorticity', figsize=(8, 4)); plt.clf()
-    plt.subplot(121); plt.imshow(qg.q1)
-    plt.subplot(122); plt.imshow(qg.q2)
+    fig = plt.figure('Perturbation vorticity', figsize=(8, 8)); plt.clf()
+
+    plt.subplot(221); plt.imshow(qg.q1)
+    plt.subplot(222); plt.imshow(qg.q2)
+
+    plt.subplot(223); plt.imshow(np.abs(qg.soln[0:qg.ny//2, :, 0]))
+    plt.subplot(224); plt.imshow(np.abs(qg.soln[0:qg.ny//2, :, 1]))
+
     plt.pause(0.01), plt.draw()
 
 print("Close the plot to end the program")
