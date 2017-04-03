@@ -98,16 +98,16 @@ class model(doublyPeriodic.model):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
         # Two-dimensional turbulent viscosity.
-        self.linearCoeff[:, :, 0] = self.meanVisc \
+        self.linearCoeff[:, :, 0] = -self.meanVisc \
             * (self.KK**2.0 + self.LL**2.0)**(self.meanViscOrder/2.0)
 
-        self.linearCoeff[:, :, 1] = self.waveVisc \
+        self.linearCoeff[:, :, 1] = -self.waveVisc \
             * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
 
-        self.linearCoeff[:, :, 2] = self.waveVisc \
+        self.linearCoeff[:, :, 2] = -self.waveVisc \
             * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
 
-        self.linearCoeff[:, :, 3] = self.waveDiff \
+        self.linearCoeff[:, :, 3] = -self.waveDiff \
             * (self.KK**2.0 + self.LL**2.0)**(self.waveDiffOrder/2.0)
 
     def _calc_right_hand_side(self, soln, t):

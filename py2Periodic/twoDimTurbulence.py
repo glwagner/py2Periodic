@@ -59,7 +59,7 @@ class model(doublyPeriodic.model):
             side of the equation """
 
         self.linearCoeff[:, :, 0] = \
-            self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
+            -self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
        
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """

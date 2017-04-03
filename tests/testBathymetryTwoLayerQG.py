@@ -21,7 +21,7 @@ params = {
     'timeStepper': 'AB3', 
     'nThreads'   : 4,
     'useFilter'  : True,
-    'flatBottom' : True
+    'flatBottom' : False, 
 }
 
 # Create the two-layer model
@@ -35,6 +35,12 @@ q1 = Ro*f0*np.random.standard_normal(qg.physVarShape)
 q2 = Ro*f0*np.random.standard_normal(qg.physVarShape)
 
 qg.set_q1_and_q2(q1, q2)
+
+# Bathymetry
+R = qg.Lx/20
+(x0, y0) = (qg.Lx/2.0, qg.Ly/2.0)
+h = 0.1*qg.H2*np.exp( (-(qg.x-x0)**2.0 - (qg.y-y0)**2.0)/(2.0*R**2.0) )
+qg.set_bathymetry(h)
 
 # Run a loop
 nt = 1e3

@@ -29,7 +29,7 @@ class model(doublyPeriodic.model):
             visc = 1e0,
             viscOrder = 4.0,
             ## Flag to activate bathymetry
-            flatBottom = True,
+            flatBottom = False,
         ):
 
         # Initialize super-class.
@@ -80,11 +80,11 @@ class model(doublyPeriodic.model):
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
-        self.linearCoeff[:, :, 0] = self._jk*self.U1 \
-            + self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
+        self.linearCoeff[:, :, 0] = -self._jk*self.U1 \
+            - self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
-        self.linearCoeff[:, :, 1] = self._jk*self.U2 \
-            + self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
+        self.linearCoeff[:, :, 1] = -self._jk*self.U2 \
+            - self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
     def _init_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
@@ -148,14 +148,20 @@ class model(doublyPeriodic.model):
         self.u2 = self.ifft2(-self._jl*self.psi2h)
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
+        # Add topographic contribution to PV
+        if self.flatBottom:
+            q2 = self.q1
+        else:
+            q2 = self.q1 + self.qTop
+
         # Right Hand Side of the q1-equation
         self.RHS[:, :, 0] = -self._jk*self.fft2( self.u1*self.q1 ) \
                                 - self._jl*self.fft2( self.v1*self.q1 ) \
                                 - self._jkQ1y*self.psi1h
 
         # Right Hand Side of the q2-equation
-        self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*self.q2 ) \
-                                - self._jl*self.fft2( self.v2*self.q2 ) \
+        self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*q2 ) \
+                                - self._jl*self.fft2( self.v2*q2 ) \
                                 - self._jkQ2y*self.psi2h \
                                 + self._bottomDragK*self.psi2h
 

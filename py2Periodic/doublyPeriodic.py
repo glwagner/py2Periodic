@@ -109,7 +109,7 @@ class model(object):
 
             # Specify filter parameters
             filterOrder = 4.0
-            cutOffK = 0.20*pi
+            cutOffK = 0.65*pi
             decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
 
             # Construct the filter
@@ -269,7 +269,7 @@ class model(object):
         if dt is None: dt=self.dt
 
         self._calc_right_hand_side(self.soln, self.t)
-        self.soln += dt*(self.RHS - self.linearCoeff*self.soln)
+        self.soln += dt*(self.RHS + self.linearCoeff*self.soln)
         self.t += dt
         self.step += 1
 
@@ -302,27 +302,27 @@ class model(object):
 
         # Substep 1
         self._calc_right_hand_side(self.soln, self.t)
-        self.__RHS1 = self.RHS - self.linearCoeff*self.soln
+        self.__RHS1 = self.RHS + self.linearCoeff*self.soln
 
         # Substep 2
         t1 = self.t + dt/2.0
         self.__soln1 = self.soln + dt/2.0*self.__RHS1
 
         self._calc_right_hand_side(self.__soln1, t1) 
-        self.__RHS2 = self.RHS - self.linearCoeff*self.__soln1
+        self.__RHS2 = self.RHS + self.linearCoeff*self.__soln1
 
         # Substep 3
         self.__soln1 = self.soln + dt/2.0*self.__RHS2
 
         self._calc_right_hand_side(self.__soln1, t1) 
-        self.__RHS3 = self.RHS - self.linearCoeff*self.__soln1
+        self.__RHS3 = self.RHS + self.linearCoeff*self.__soln1
 
         # Substep 4
         t1 = self.t + dt
         self.__soln1 = self.soln + dt*self.__RHS3
 
         self._calc_right_hand_side(self.__soln1, t1) 
-        self.RHS -= self.linearCoeff*self.__soln1
+        self.RHS += self.linearCoeff*self.__soln1
 
         # Final step
         self.soln += dt*(   1.0/6.0*self.__RHS1 + 1.0/3.0*self.__RHS2 \
@@ -350,7 +350,7 @@ class model(object):
 
         # Circular contour around the point to be calculated
         linearCoeffDt = self.dt*self.linearCoeff
-        zc = -linearCoeffDt[..., np.newaxis] \
+        zc = linearCoeffDt[..., np.newaxis] \
                 + circ[np.newaxis, np.newaxis, np.newaxis, ...]
 
         # Four coefficients, zeta, alpha, beta, and gamma
@@ -371,8 +371,8 @@ class model(object):
                             ).mean(axis=-1)
                               
         # Pre-calculate an exponential     
-        self.__linearExpDt     = np.exp(-self.dt*self.linearCoeff)
-        self.__linearExpHalfDt = np.exp(-self.dt/2.0*self.linearCoeff)
+        self.__linearExpDt     = np.exp(self.dt*self.linearCoeff)
+        self.__linearExpHalfDt = np.exp(self.dt/2.0*self.linearCoeff)
 
         # Allocate intermediate solution variable
         self.__soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
@@ -433,10 +433,10 @@ class model(object):
         # While RHS_{n-2} is unfilled, step forward with foward Euler.
         if not self.__RHSm2.any():
             self._calc_right_hand_side(self.soln, self.t)
-            self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
+            self.soln += self.dt*(self.RHS + self.linearCoeff*self.soln)
         else:
             self._calc_right_hand_side(self.soln, self.t)
-            self.RHS -= self.linearCoeff*self.soln
+            self.RHS += self.linearCoeff*self.soln
 
             self.soln +=   23.0/12.0 * self.dt * self.RHS \
                          - 16.0/12.0 * self.dt * self.__RHSm1 \
