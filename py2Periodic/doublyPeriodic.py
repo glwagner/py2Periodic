@@ -75,7 +75,7 @@ class model(object):
         ll = self.dl*np.append(np.arange(0.0, self.ny/2.0),
             np.arange(-self.ny/2.0, 0.0) )
 
-        self.KK, self.LL = np.meshgrid(kk, ll)
+        self.k, self.l = np.meshgrid(kk, ll)
 
         # Create tuples with shapes of physical and spectral variables
         self.physVarShape = (self.ny, self.nx)
@@ -103,12 +103,12 @@ class model(object):
             decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
 
             # Construct the filter
-            nonDimK = np.sqrt( (self.KK*self.dx)**2.0 + (self.LL*self.dy)**2.0 )
+            nonDimK = np.sqrt( (self.k*self.dx)**2.0 + (self.l*self.dy)**2.0 )
             self.filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
 
             # Set filter to 1 outside pseudo-ovoid filtering range
-            self.filter[ np.sqrt((self.KK*self.dx)**2.0 \
-                + (self.LL*self.dy)**2.0) < cutOffK ] = 1.0
+            self.filter[ np.sqrt((self.k*self.dx)**2.0 \
+                + (self.l*self.dy)**2.0) < cutOffK ] = 1.0
 
             # Broadcast to correct size
             self.filter = self.filter[:, :, np.newaxis] \

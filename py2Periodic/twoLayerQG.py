@@ -80,11 +80,11 @@ class model(doublyPeriodic.model):
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
-        self.linearCoeff[:, :, 0] = self.jKK*self.U1 \
-            + self.visc*(self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
+        self.linearCoeff[:, :, 0] = self.__jk*self.U1 \
+            + self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
-        self.linearCoeff[:, :, 1] = self.jKK*self.U2 \
-            + self.visc*(self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
+        self.linearCoeff[:, :, 1] = self.__jk*self.U2 \
+            + self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
     def _init_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
@@ -101,20 +101,20 @@ class model(doublyPeriodic.model):
         self.Q2y = self.beta - self.F2*(self.U1 - self.U2)
 
         # A square wavenumber and various products
-        self.kay2 = self.KK**2.0 + self.LL**2.0
+        self.KK = self.k**2.0 + self.l**2.0
 
-        self.jKK = 1j*self.KK
-        self.jLL = 1j*self.LL
+        self.__jk = 1j*self.k
+        self.__jl = 1j*self.l
 
-        self.jKKQ1y = 1j*self.KK*self.Q1y
-        self.jKKQ2y = 1j*self.KK*self.Q2y
+        self.__jkQ1y = 1j*self.k*self.Q1y
+        self.__jkQ2y = 1j*self.k*self.Q2y
 
-        self.dragKay2 = self.bottomDrag*self.kay2
+        self.__bottomDragKK = self.bottomDrag*self.KK
 
         # "One over" the determinant of the PV-streamfunction inversion matrix
-        detM = self.kay2*(self.kay2 + self.F1 + self.F2)
+        detM = self.KK*(self.KK + self.F1 + self.F2)
         detM[0, 0] = float('Inf')
-        self.oneOverDetM = 1.0/detM
+        self.__oneOverDetM = 1.0/detM
 
         # Streamfunctions
         self.psi1h = np.zeros(self.physVarShape, np.dtype('complex128'))
@@ -142,21 +142,22 @@ class model(doublyPeriodic.model):
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
-        self.u1 = -self.ifft2(self.jLL*self.psi1h)
-        self.v1 =  self.ifft2(self.jKK*self.psi1h)
+        self.u1 = -self.ifft2(self.__jl*self.psi1h)
+        self.v1 =  self.ifft2(self.__jk*self.psi1h)
 
-        self.u2 = -self.ifft2(self.jLL*self.psi2h)
-        self.v2 =  self.ifft2(self.jKK*self.psi2h)
+        self.u2 = -self.ifft2(self.__jl*self.psi2h)
+        self.v2 =  self.ifft2(self.__jk*self.psi2h)
 
         # Right Hand Side of the q1-equation
-        self.RHS[:, :, 0] = -self.jKK*self.fft2( self.u1*self.q1 ) \
-                                - self.jLL*self.fft2( self.v1*self.q1 ) \
-                                - self.jKKQ1y*self.psi1h
+        self.RHS[:, :, 0] = -self.__jk*self.fft2( self.u1*self.q1 ) \
+                                - self.__jl*self.fft2( self.v1*self.q1 ) \
+                                - self.__jkQ1y*self.psi1h
 
         # Right Hand Side of the q2-equation
-        self.RHS[:, :, 1] = -self.jKK*self.fft2( self.u2*self.q2 ) \
-                                - self.jLL*self.fft2( self.v2*self.q2 ) \
-                                - self.jKKQ2y*self.psi2h + self.dragKay2*self.psi2h
+        self.RHS[:, :, 1] = -self.__jk*self.fft2( self.u2*self.q2 ) \
+                                - self.__jl*self.fft2( self.v2*self.q2 ) \
+                                - self.__jkQ2y*self.psi2h \
+                                + self.__bottomDragKK*self.psi2h
 
         self._dealias_RHS()
 
@@ -173,18 +174,18 @@ class model(doublyPeriodic.model):
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
-        self.u1 = -self.ifft2(self.jLL*self.psi1h)
-        self.v1 =  self.ifft2(self.jKK*self.psi1h)
+        self.u1 = -self.ifft2(self.__jl*self.psi1h)
+        self.v1 =  self.ifft2(self.__jk*self.psi1h)
 
-        self.u2 = -self.ifft2(self.jLL*self.psi2h)
-        self.v2 =  self.ifft2(self.jKK*self.psi2h)
+        self.u2 = -self.ifft2(self.__jl*self.psi2h)
+        self.v2 =  self.ifft2(self.__jk*self.psi2h)
 
     def _get_streamfunctions(self, q1h, q2h):
         """ Calculate the streamfunctions psi1h and psi2h given the input 
             PV fields q1h and q2h """
 
-        self.psi1h = -self.oneOverDetM * ((self.kay2 + self.F2)*q1h + self.F1*q2h) 
-        self.psi2h = -self.oneOverDetM * (self.F2*q1h + (self.kay2 + self.F1)*q2h)
+        self.psi1h = -self.__oneOverDetM * ((self.KK + self.F2)*q1h + self.F1*q2h) 
+        self.psi2h = -self.__oneOverDetM * (self.F2*q1h + (self.KK + self.F1)*q2h)
     
     def set_bathymetry(self, h):
         """ Set model bathymetry """
@@ -223,9 +224,9 @@ class model(doublyPeriodic.model):
         # Calculate kinetic energy
         self.update_state_variables() 
         KE1 = (self.Lx*self.Ly)/(self.nx*self.ny) \
-            *1.0/2.0*( (self.KK**2.0+self.LL**2.0)*np.abs(self.psi1h)**2.0 ).sum()
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi1h)**2.0 ).sum()
         KE2 = (self.Lx*self.Ly)/(self.nx*self.ny) \
-            *1.0/2.0*( (self.KK**2.0+self.LL**2.0)*np.abs(self.psi2h)**2.0 ).sum()
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi2h)**2.0 ).sum()
         KE = KE1 + KE2
 
         # Calculate CFL number

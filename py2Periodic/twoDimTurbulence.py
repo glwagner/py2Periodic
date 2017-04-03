@@ -59,7 +59,7 @@ class model(doublyPeriodic.model):
             side of the equation """
 
         self.linearCoeff[:, :, 0] = \
-            self.visc*(self.KK**2.0 + self.LL**2.0)**(self.viscOrder/2.0)
+            self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
        
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """
@@ -67,25 +67,25 @@ class model(doublyPeriodic.model):
         qh = soln[:, :, 0]
 
         # Transform of streamfunction and physical vorticity and velocity
-        self.psih = - qh / self.divideSafeKay2 
+        self.psih = - qh / self.__divideSafeKay2 
         self.q = self.ifft2(qh)
-        self.u = -self.ifft2(self.jLL*self.psih)
-        self.v =  self.ifft2(self.jKK*self.psih)
+        self.u = -self.ifft2(self.__jl*self.psih)
+        self.v =  self.ifft2(self.__jk*self.psih)
 
-        self.RHS[:, :, 0] = -self.jKK*self.fft2(self.u*self.q) \
-                                - self.jLL*self.fft2(self.v*self.q) 
+        self.RHS[:, :, 0] = -self.__jk*self.fft2(self.u*self.q) \
+                                - self.__jl*self.fft2(self.v*self.q) 
 
         self._dealias_RHS()
          
     def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory """
 
-        self.jKK = 1j*self.KK
-        self.jLL = 1j*self.LL
+        self.__jk = 1j*self.k
+        self.__jl = 1j*self.l
 
         # Divide-safe square wavenumber magnitude
-        self.divideSafeKay2 = self.KK**2.0 + self.LL**2.0
-        self.divideSafeKay2[0, 0] = float('Inf')
+        self.__divideSafeKay2 = self.k**2.0 + self.l**2.0
+        self.__divideSafeKay2[0, 0] = float('Inf')
 
         # Transformed streamfunction and physical vorticity and velocity
         self.psih = np.zeros(self.physVarShape, np.dtype('complex128'))
@@ -99,10 +99,10 @@ class model(doublyPeriodic.model):
         qh = self.soln[:, :, 0]
 
         # Transform of streamfunction and physical vorticity and velocity
-        self.psih = - qh / self.divideSafeKay2 
+        self.psih = - qh / self.__divideSafeKay2 
         self.q = self.ifft2(qh)
-        self.u = -self.ifft2(self.jLL*self.psih)
-        self.v =  self.ifft2(self.jKK*self.psih)
+        self.u = -self.ifft2(self.__jl*self.psih)
+        self.v =  self.ifft2(self.__jk*self.psih)
 
     def set_q(self, q):
         self.soln[:, :, 0] = self.fft2(q)
