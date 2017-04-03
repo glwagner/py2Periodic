@@ -12,7 +12,7 @@ params = {
     'H2'         : 2000, 
     'U1'         : 1.0e-1, 
     'U2'         : 0.0, 
-    'drag'       : 1.0e-6, 
+    'bottomDrag' : 1.0e-6, 
     'visc'       : 1.0e6, 
     'viscOrder'  : 4.0, 
     'nx'         : 256, 
@@ -29,13 +29,14 @@ myParams = {
     'H2'         : 2000.0, 
     'U1'         : 2.5e-2, 
     'U2'         : 0.0,
-    'drag'       : 1.0e-7,
-    'nx'         : 128,
-    'dt'         : 2.0e4, 
-    'visc'       : 1.0e8, 
+    'bottomDrag' : 1.0e-7,
+    'nx'         : 256,
+    'dt'         : 1.0e4, 
+    'visc'       : 0.0e8, 
     'viscOrder'  : 4.0, 
     'timeStepper': 'AB3', 
-    'nThreads'   : 2,
+    'nThreads'   : 8,
+    'useFilter'  : True,
 }
 
 # Create the two-layer model
@@ -51,8 +52,8 @@ q2 = Ro*f0*np.random.standard_normal(qg.physVarShape)
 qg.set_q1_and_q2(q1, q2)
 
 # Run a loop
-nt = 5e2
-for ii in np.arange(0, 1e3):
+nt = 1e2
+for ii in np.arange(0, 1e1):
 
     qg.step_nSteps(nSteps=nt, dnLog=nt)
     qg.update_state_variables()
