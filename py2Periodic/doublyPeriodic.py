@@ -249,56 +249,6 @@ class model(object):
         self.t += dt
         self.step += 1
 
-    ## Low-storage Runge-Kutta-Wray-theta scheme - - - - - - - - - - - - - - - - - - - 
-    def _describe_time_stepper_RKW3(self):
-        print("""
-            RKW3, or more completely, RKW3-theta, is the 3rd-order low-storage \n
-            Runge-Kutta-Wray time-stepping method. It may be semi-implicit, but \n
-            that is not known right now because this method was implemented by \n
-            Cesar Rocha and we do not have a reference or documentation.
-              """)
-
-    def _init_time_stepper_RKW3(self):
-        """ Initialize and allocate vars for RK3W time-stepping """
-
-        self.a1, self.a2, self.a3 = 29./96., -3./40., 1./6.
-        self.b1, self.b2, self.b3 = 37./160., 5./24., 1./6.
-        self.c1, self.c2, self.c3 = 8./15., 5./12., 3./4.
-        self.d1, self.d2 = -17./60., -5./12.
-
-        self.L0 = -self.dt*self.linearCoeff
-        self.L1 = ( (1. + self.a1*self.L0)/(1. - self.b1*self.L0) )     
-        self.L2 = ( (1. + self.a2*self.L0)/(1. - self.b2*self.L0) )
-        self.L3 = ( (1. + self.a2*self.L0)/(1. - self.b3*self.L0) )
-
-        # Allocate nonlinear terms
-        self.NL1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.NL2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-
-    def _step_forward_RKW3(self):
-        """ Step the solution forward in time using the RKW3 scheme """
-
-        self._calc_right_hand_side(self.soln, self.t)
-        self.NL1 = self.RHS.copy()
-
-        self.soln  = (self.L1*self.soln + self.c1*self.dt*self.NL1).copy()
-
-        self._calc_right_hand_side(self.soln, self.t)
-        self.NL2 = self.NL1.copy()
-        self.NL1 = self.RHS.copy()
-
-        self.soln = (self.L2*self.soln + self.c2*self.dt*self.NL1 \
-                    + self.d1*self.dt*self.NL2).copy()
-
-        self._calc_right_hand_side(self.soln, self.t)
-        self.NL2 = self.NL1.copy()
-        self.NL1 = self.RHS.copy()
-
-        self.soln = (self.L3*self.soln + self.c3*self.dt*self.NL1 \
-                    + self.d2*self.dt*self.NL2).copy()
-        self.t += self.dt
-        self.step += 1
-
     ## 4th-order Runge-Kutta (RK4)  - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RK4(self):
         print("""
@@ -314,12 +264,12 @@ class model(object):
         """ Initialize and allocate vars for RK4 time-stepping """
 
         # Allocate intermediate solution variable
-        self.soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
         # Allocate nonlinear terms
-        self.RHS1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.RHS2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.RHS3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__RHS1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__RHS2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__RHS3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
     def _step_forward_RK4(self, dt=None):
         """ Step the solution forward in time using the RK4 scheme """
@@ -328,31 +278,31 @@ class model(object):
 
         # Substep 1
         self._calc_right_hand_side(self.soln, self.t)
-        self.RHS1 = self.RHS - self.linearCoeff*self.soln
+        self.__RHS1 = self.RHS - self.linearCoeff*self.soln
 
         # Substep 2
         t1 = self.t + dt/2.0
-        self.soln1 = self.soln + dt/2.0*self.RHS1
+        self.__soln1 = self.soln + dt/2.0*self.__RHS1
 
-        self._calc_right_hand_side(self.soln1, t1) 
-        self.RHS2 = self.RHS - self.linearCoeff*self.soln1
+        self._calc_right_hand_side(self.__soln1, t1) 
+        self.__RHS2 = self.RHS - self.linearCoeff*self.__soln1
 
         # Substep 3
-        self.soln1 = self.soln + dt/2.0*self.RHS2
+        self.__soln1 = self.soln + dt/2.0*self.__RHS2
 
-        self._calc_right_hand_side(self.soln1, t1) 
-        self.RHS3 = self.RHS - self.linearCoeff*self.soln1
+        self._calc_right_hand_side(self.__soln1, t1) 
+        self.__RHS3 = self.RHS - self.linearCoeff*self.__soln1
 
         # Substep 4
         t1 = self.t + dt
-        self.soln1 = self.soln + dt*self.RHS3
+        self.__soln1 = self.soln + dt*self.__RHS3
 
-        self._calc_right_hand_side(self.soln1, t1) 
-        self.RHS -= self.linearCoeff*self.soln1
+        self._calc_right_hand_side(self.__soln1, t1) 
+        self.RHS -= self.linearCoeff*self.__soln1
 
         # Final step
-        self.soln += dt*(   1.0/6.0*self.RHS1 + 1.0/3.0*self.RHS2 \
-                          + 1.0/3.0*self.RHS3 + 1.0/6.0*self.RHS )
+        self.soln += dt*(   1.0/6.0*self.__RHS1 + 1.0/3.0*self.__RHS2 \
+                          + 1.0/3.0*self.__RHS3 + 1.0/6.0*self.RHS )
         self.t += dt
         self.step += 1
 
@@ -380,60 +330,60 @@ class model(object):
                 + circ[np.newaxis, np.newaxis, np.newaxis, ...]
 
         # Four coefficients, zeta, alpha, beta, and gamma
-        self.zeta = self.dt*( \
+        self.__zeta = self.dt*( \
                         (np.exp(zc/2.0) - 1.0) / zc \
                             ).mean(axis=-1)
 
-        self.alph = self.dt*( \
+        self.__alph = self.dt*( \
                       (-4.0 - zc + np.exp(zc)*(4.0-3.0*zc+zc**2.0)) / zc**3.0 \
                             ).mean(axis=-1)
 
-        self.beta = self.dt*( \
+        self.__beta = self.dt*( \
                       (2.0 + zc + np.exp(zc)*(-2.0+zc) ) / zc**3.0 \
                             ).mean(axis=-1)
 
-        self.gamm = self.dt*( \
+        self.__gamm = self.dt*( \
                       (-4.0 - 3.0*zc - zc**2.0 + np.exp(zc)*(4.0-zc)) / zc**3.0 \
                             ).mean(axis=-1)
                               
         # Pre-calculate an exponential     
-        self.linearExpDt     = np.exp(-self.dt*self.linearCoeff)
-        self.linearExpHalfDt = np.exp(-self.dt/2.0*self.linearCoeff)
+        self.__linearExpDt     = np.exp(-self.dt*self.linearCoeff)
+        self.__linearExpHalfDt = np.exp(-self.dt/2.0*self.linearCoeff)
 
         # Allocate intermediate solution variable
-        self.soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.soln2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__soln1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__soln2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
         # Allocate nonlinear terms
-        self.NL1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.NL2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.NL3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__NL1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__NL2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__NL3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
     def _step_forward_ETDRK4(self):
         """ Step the solution forward in time using the ETDRK4 scheme """
 
         self._calc_right_hand_side(self.soln, self.t)
-        self.NL1 = self.RHS.copy()
+        self.__NL1 = self.RHS.copy()
 
         t1 = self.t + self.dt/2
-        self.soln1 = self.linearExpHalfDt*self.soln + self.zeta*self.NL1
-        self._calc_right_hand_side(self.soln1, t1)
-        self.NL2 = self.RHS.copy()
+        self.__soln1 = self.__linearExpHalfDt*self.soln + self.__zeta*self.__NL1
+        self._calc_right_hand_side(self.__soln1, t1)
+        self.__NL2 = self.RHS.copy()
 
-        self.soln2 = self.linearExpHalfDt*self.soln + self.zeta*self.NL2
-        self._calc_right_hand_side(self.soln2, t1)
-        self.NL3 = self.RHS.copy()
+        self.__soln2 = self.__linearExpHalfDt*self.soln + self.__zeta*self.__NL2
+        self._calc_right_hand_side(self.__soln2, t1)
+        self.__NL3 = self.RHS.copy()
 
         t1 = self.t + self.dt
-        self.soln2 = self.linearExpHalfDt*self.soln1 \
-            + self.zeta*(2.0*self.NL3-self.NL1)
-        self._calc_right_hand_side(self.soln2, t1)
+        self.__soln2 = self.__linearExpHalfDt*self.__soln1 \
+            + self.__zeta*(2.0*self.__NL3-self.__NL1)
+        self._calc_right_hand_side(self.__soln2, t1)
 
         # The final step
-        self.soln = self.linearExpDt*self.soln \
-                    +     self.alph * self.NL1 \
-                    + 2.0*self.beta * (self.NL2 + self.NL3) \
-                    +     self.gamm * self.RHS
+        self.soln = self.__linearExpDt*self.soln \
+                    +     self.__alph * self.__NL1 \
+                    + 2.0*self.__beta * (self.__NL2 + self.__NL3) \
+                    +     self.__gamm * self.RHS
         self.t += self.dt
         self.step += 1
 
@@ -450,14 +400,14 @@ class model(object):
         """ Initialize and allocate vars for AB3 time-stepping """
 
         # Allocate right hand sides to be stored from previous steps
-        self.RHSm1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
-        self.RHSm2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__RHSm1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+        self.__RHSm2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
     def _step_forward_AB3(self):
         """ Step the solution forward in time using the AB3 scheme """
 
         # While RHS_{n-2} is unfilled, step forward with foward Euler.
-        if not self.RHSm2.any():
+        if not self.__RHSm2.any():
             self._calc_right_hand_side(self.soln, self.t)
             self.soln += self.dt*(self.RHS - self.linearCoeff*self.soln)
         else:
@@ -465,12 +415,12 @@ class model(object):
             self.RHS -= self.linearCoeff*self.soln
 
             self.soln +=   23.0/12.0 * self.dt * self.RHS \
-                         - 16.0/12.0 * self.dt * self.RHSm1 \
-                         +  5.0/12.0 * self.dt * self.RHSm2
+                         - 16.0/12.0 * self.dt * self.__RHSm1 \
+                         +  5.0/12.0 * self.dt * self.__RHSm2
 
         # Store RHS for use in future time-steps.
-        self.RHSm2 = self.RHSm1.copy()
-        self.RHSm1 = self.RHS.copy()
+        self.__RHSm2 = self.__RHSm1.copy()
+        self.__RHSm1 = self.RHS.copy()
 
         self.t += self.dt
         self.step += 1
