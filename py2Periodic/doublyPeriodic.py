@@ -93,9 +93,9 @@ class model(object):
         self.linearCoeff = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.RHS         = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
-        # Initialize the spectral filter if it is being used.
+        # Initialize the spectral _filter if it is being used.
         if self.useFilter:
-            self.filter = np.zeros( self.specVarShape )
+            self._filter = np.zeros( self.specVarShape )
 
             # Specify filter parameters
             filterOrder = 4.0
@@ -104,14 +104,14 @@ class model(object):
 
             # Construct the filter
             nonDimK = np.sqrt( (self.k*self.dx)**2.0 + (self.l*self.dy)**2.0 )
-            self.filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
+            self._filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
 
             # Set filter to 1 outside pseudo-ovoid filtering range
-            self.filter[ np.sqrt((self.k*self.dx)**2.0 \
+            self._filter[ np.sqrt((self.k*self.dx)**2.0 \
                 + (self.l*self.dy)**2.0) < cutOffK ] = 1.0
 
             # Broadcast to correct size
-            self.filter = self.filter[:, :, np.newaxis] \
+            self._filter = self._filter[:, :, np.newaxis] \
                 * np.ones((1, 1, self.nVars))
 
     def _init_fft(self):
@@ -153,7 +153,7 @@ class model(object):
     # Methods for model operation - - - - - - - - - - - - - - - - - - - - - - - 
     def _dealias_RHS(self):
         if self.useFilter:
-            self.RHS *= self.filter
+            self.RHS *= self._filter
         elif self.realVars:
             self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
             self.RHS[:, self.nx//3:, :] = 0.0
@@ -165,7 +165,7 @@ class model(object):
         """ Dealias the Fourier transform of an array """
 
         if self.useFilter:
-            array *= self.filter
+            array *= self._filter
         elif self.realVars:
             array[self.nx//3:2*self.nx//3, :, :] = 0.0
             array[:, self.ny//3:, :] = 0.0
