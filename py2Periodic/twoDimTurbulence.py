@@ -32,17 +32,14 @@ class model(doublyPeriodic.model):
         self.name = name
         self.visc = visc
         self.viscOrder = viscOrder
-            
-        # Initialize variables and parameters specific to the problem
-        self._init_problem_parameters()
-        self._init_linear_coeff()
 
-        # Initialize time-stepper once linear coefficient is determined
-        self._init_time_stepper()
+        # Initialize the grid, transform methods, and problem-specific parameters
+        self._init_model()
 
         # Set a default initial condition
         self.set_physical_soln( \
             0.1*np.random.standard_normal(self.physSolnShape))
+
         self.update_state_variables()
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 

@@ -46,11 +46,8 @@ class model(doublyPeriodic.model):
         self.meanViscOrder = meanViscOrder
         self.waveViscOrder = waveViscOrder
             
-        # Initial routines
-        ## Initialize variables and parameters specific to this problem
-        self._init_parameters()
-        self._set_linear_coeff()
-        self._init_time_stepper()
+        # Initialize the model
+        self._init_model()
 
         # Default initial condition.
         soln = np.zeros_like(self.soln)
@@ -163,7 +160,7 @@ class model(doublyPeriodic.model):
 
         self._dealias_RHS()
          
-    def _init_parameters(self):
+    def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
 
         # Frequency parameter

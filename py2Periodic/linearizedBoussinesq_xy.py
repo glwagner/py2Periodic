@@ -3,14 +3,9 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(
-            self,
-            name = "linearizedBoussinesqEquationsExample", 
+    def __init__(self, name = "linearizedBoussinesqEquationsExample", 
             # Grid parameters
-            nx = 128,
-            Lx = 2.0*pi,
-            ny = None,
-            Ly = None, 
+            nx = 128, ny = None, Lx = 2.0*pi, Ly = None, 
             # Solver parameters
             t  = 0.0,  
             dt = 1.0e-2,                    # Numerical timestep
@@ -36,17 +31,9 @@ class model(doublyPeriodic.model):
                 " linearized around two-dimensional turbulence",
             nVars = 4, 
             realVars = True,
-            # Grid parameters
-            nx = nx,
-            ny = ny,
-            Lx = Lx,
-            Ly = Ly,
-            # Solver parameters
-            t  = t,   
-            dt = dt,                        # Numerical timestep
-            step = step,                    # Current step
-            timeStepper = timeStepper,      # Time-stepping method
-            nThreads = nThreads,            # Number of threads for FFTW
+            # Persistant doublyPeriodic initialization arguments 
+            nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
+            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
 
         # Physical parameters specific to the Physical Problem
@@ -60,12 +47,9 @@ class model(doublyPeriodic.model):
         self.waveDiff = waveDiff
         self.waveDiffOrder = waveDiffOrder
             
-        # Initial routines
-        ## Initialize variables and parameters specific to this problem
-        self._init_parameters()
-        self._set_linear_coeff()
-        self._init_time_stepper()
-
+        # Initialize the grid, transform methods, and problem-specific parameters
+        self._init_model()
+        
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/20
         q0 = 0.1*self.f0 * exp( \
@@ -99,16 +83,16 @@ class model(doublyPeriodic.model):
             side of the equation """
         # Two-dimensional turbulent viscosity.
         self.linearCoeff[:, :, 0] = -self.meanVisc \
-            * (self.KK**2.0 + self.LL**2.0)**(self.meanViscOrder/2.0)
+            * (self.k**2.0 + self.l**2.0)**(self.meanViscOrder/2.0)
 
         self.linearCoeff[:, :, 1] = -self.waveVisc \
-            * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
+            * (self.k**2.0 + self.l**2.0)**(self.waveViscOrder/2.0)
 
         self.linearCoeff[:, :, 2] = -self.waveVisc \
-            * (self.KK**2.0 + self.LL**2.0)**(self.waveViscOrder/2.0)
+            * (self.k**2.0 + self.l**2.0)**(self.waveViscOrder/2.0)
 
         self.linearCoeff[:, :, 3] = -self.waveDiff \
-            * (self.KK**2.0 + self.LL**2.0)**(self.waveDiffOrder/2.0)
+            * (self.k**2.0 + self.l**2.0)**(self.waveDiffOrder/2.0)
 
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of PDE """
@@ -125,16 +109,16 @@ class model(doublyPeriodic.model):
         self.p = self.ifft2(ph)
 
         # Calculate streamfunction
-        self.psih = -qh / self.divideSafeKay2
+        self.psih = -qh / self._divSafeKsq
 
         # Mean velocities
-        self.U = -self.ifft2(self.jLL*self.psih)
-        self.V =  self.ifft2(self.jKK*self.psih)
+        self.U = -self.ifft2(self._jl*self.psih)
+        self.V =  self.ifft2(self._jk*self.psih)
 
         # Mean derivatives
-        self.Ux =  self.ifft2(self.LL*self.KK*self.psih)
-        self.Uy =  self.ifft2(self.LL**2.0*self.psih)
-        self.Vx = -self.ifft2(self.KK**2.0*self.psih)
+        self.Ux =  self.ifft2(self.l*self.k*self.psih)
+        self.Uy =  self.ifft2(self.l**2.0*self.psih)
+        self.Vx = -self.ifft2(self.k**2.0*self.psih)
 
         # Views to clarify calculation of A's RHS
         U = self.U
@@ -148,46 +132,29 @@ class model(doublyPeriodic.model):
         Vx = self.Vx        
 
         # Solely nonlinear advection for q
-        self.RHS[:, :, 0] = - self.jKK*self.fft2(U*q) - self.jLL*self.fft2(V*q)
+        self.RHS[:, :, 0] = - self._jk*self.fft2(U*q) - self._jl*self.fft2(V*q)
 
         # Linear terms + advection for u, v, p, + refraction for u, v
-
-        # DEBUGGING
-
-        # Linear terms only
-        #self.RHS[:, :, 1] =  self.f0*vh - self.jKK*ph
-        #self.RHS[:, :, 2] = -self.f0*uh - self.jLL*ph
-        #self.RHS[:, :, 3] = -self.cn**2.0 * ( self.jKK*uh + self.jLL*vh )
-
-        # Nonlinear terms only
-        #self.RHS[:, :, 1] = \
-        #                        - self.jKK*self.fft2(U*u) - self.jLL*self.fft2(V*u) \
-        #                        - self.fft2(u*Ux) - self.fft2(v*Uy)
-
-        #self.RHS[:, :, 2] = \
-        #                        - self.jKK*self.fft2(U*v) - self.jLL*self.fft2(V*v) \
-        #                        - self.fft2(u*Vx) + self.fft2(v*Ux)
-
-        #self.RHS[:, :, 3] = \
-        #                        - self.jKK*self.fft2(U*p) - self.jLL*self.fft2(V*p)
-
-        # Both?
-        self.RHS[:, :, 1] =  self.f0*vh - self.jKK*ph \
-                                 - self.jKK*self.fft2(U*u) - self.jLL*self.fft2(V*u) \
+        self.RHS[:, :, 1] =  self.f0*vh - self._jk*ph \
+                                 - self._jk*self.fft2(U*u) - self._jl*self.fft2(V*u) \
                                  - self.fft2(u*Ux) - self.fft2(v*Uy)
-        self.RHS[:, :, 2] = -self.f0*uh - self.jLL*ph \
-                                 - self.jKK*self.fft2(U*v) - self.jLL*self.fft2(V*v) \
+        self.RHS[:, :, 2] = -self.f0*uh - self._jl*ph \
+                                 - self._jk*self.fft2(U*v) - self._jl*self.fft2(V*v) \
                                  - self.fft2(u*Vx) + self.fft2(v*Ux)
-        self.RHS[:, :, 3] = -self.cn**2.0 * ( self.jKK*uh + self.jLL*vh ) \
-                                 - self.jKK*self.fft2(U*p) - self.jLL*self.fft2(V*p)
+        self.RHS[:, :, 3] = -self.cn**2.0 * ( self._jk*uh + self._jl*vh ) \
+                                 - self._jk*self.fft2(U*p) - self._jl*self.fft2(V*p)
                                
         self._dealias_RHS()
          
-    def _init_parameters(self):
+    def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
-        # Divide-safe square wavenumber
-        self.divideSafeKay2 = self.KK**2.0 + self.LL**2.0
-        self.divideSafeKay2[0, 0] = float('Inf')
+
+        # Wavenumbers and products
+        self._jk = 1j*self.k
+        self._jl = 1j*self.l
+
+        self._divSafeKsq = self.k**2.0 + self.l**2.0
+        self._divSafeKsq[0, 0] = float('Inf')
 
         # Mode-n wave speed:
         self.cn = self.f0 / self.kappa
@@ -218,7 +185,7 @@ class model(doublyPeriodic.model):
         ph = self.soln[:, :, 3]
         
         # Streamfunction
-        self.psih = - qh / self.divideSafeKay2 
+        self.psih = - qh / self._divSafeKsq 
 
         # Physical-space PV and velocity components
         self.q = self.ifft2(qh)
@@ -226,13 +193,14 @@ class model(doublyPeriodic.model):
         self.v = self.ifft2(vh)
         self.p = self.ifft2(ph)
 
-        self.U = -self.ifft2(self.jLL*self.psih)
-        self.V =  self.ifft2(self.jKK*self.psih)
+        self.U = -self.ifft2(self._jl*self.psih)
+        self.V =  self.ifft2(self._jk*self.psih)
 
     def set_q(self, q):
         """ Set model vorticity """
+
         self.soln[:, :, 0] = self.fft2(q)
-        self.soln = self._dealias_array(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
 
     def make_plane_wave(self, kNonDim):
@@ -256,38 +224,13 @@ class model(doublyPeriodic.model):
 
     def set_uvp(self, u, v, p):
         """ Set linearized Boussinesq variables """
+
         self.soln[:, :, 1] = self.fft2(u)
         self.soln[:, :, 2] = self.fft2(v)
         self.soln[:, :, 3] = self.fft2(p)
 
-        self.soln = self._dealias_array(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
-
-    def plot_current_state(self):
-        """ Create a simple plot that shows the state of the model."""
-
-        # Figure out how to do this efficiently.
-        import matplotlib.pyplot as plt
-
-        self.update_state_variables()
-
-        # Initialize colorbar dictionary
-        colorbarProperties = { 
-            'orientation' : 'vertical',
-            'shrink'      : 0.8,
-            'extend'      : 'neither',
-        }
-
-        self.fig = plt.figure('Hydrostatic wave equation',
-                            figsize=(8, 4))
-
-        ax1 = plt.subplot(121)
-        plt.pcolormesh(self.xx, self.yy, self.q, cmap='RdBu_r')
-        plt.axis('square')
-
-        ax2 = plt.subplot(122)
-        plt.pcolormesh(self.xx, self.yy, sqrt(self.u**2.0+self.v**2.0))
-        plt.axis('square')
 
     def describe_model(self):
         """ Describe the current model state """

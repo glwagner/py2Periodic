@@ -55,13 +55,9 @@ class model(doublyPeriodic.model):
         self.visc = visc
         self.viscOrder = viscOrder
         self.flatBottom = flatBottom
-            
-        # Initialize variables and parameters specific to the problem
-        self._init_parameters()
-        self._init_linear_coeff()
 
-        # Initialize time-stepper once linear coefficient is determined
-        self._init_time_stepper()
+        # Initialize variables and parameters specific to the problem
+        self._init_model()
 
         # Set the initial condition to default.
         self.set_physical_soln( \

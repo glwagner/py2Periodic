@@ -55,13 +55,10 @@ class model(doublyPeriodic.model):
         self.meanViscOrder = meanViscOrder
         self.waveVisc = waveVisc
         self.waveViscOrder = waveViscOrder
-            
-        # Initial routines
-        ## Initialize variables and parameters specific to this problem
-        self._init_parameters()
-        self._set_linear_coeff()
-        self._init_time_stepper()
 
+        # Initialize the model
+        self._init_model()
+            
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/20
         q0 = 0.1*self.f0 * np.exp( \
@@ -131,7 +128,7 @@ class model(doublyPeriodic.model):
                                 -1j/2.0*self.fft2(q*A)
         self._dealias_RHS()
          
-    def _init_parameters(self):
+    def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
         # Divide-safe square wavenumber
         self.divideSafeKay2 = self.KK**2.0 + self.LL**2.0

@@ -1,5 +1,8 @@
 import numpy as np; from numpy import pi
-import pyfftw, mkl, time
+import pyfftw
+import mkl
+import time
+import h5py
 
 # TODO 1. Add an exception error for the violation of physical
 #           conditions, if physical parameters are unset, etc.
@@ -56,11 +59,25 @@ class model(object):
         np.use_fastnumpy = True
         mkl.set_num_threads(self.nThreads)
 
-        # Initialize the grid, transform methods, and miscellanous parameters
+    # Initialization methods  - - - - - - - - - - - - - - - - - - - - - - - - - 
+    def _init_model(self):
+        """ Run various initialization routines """
+
+        # Copy the model inputs into an independent dictionary prior to running 
+        # initialization routines
+        self._input = self.__dict__.copy()
+
+        # Defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()
         self._init_fft()
 
-    # Initialization methods  - - - - - - - - - - - - - - - - - - - - - - - - - 
+        # Defined in the physical problem's subclass
+        self._init_problem_parameters()
+        self._init_linear_coeff()
+
+        # Initialize time-stepper once linear coefficient is determined
+        self._init_time_stepper()
+
     def _init_numerical_parameters(self):
         """ Define the grid, initialize core variables, and initialize 
             miscallenous model parameters. """
