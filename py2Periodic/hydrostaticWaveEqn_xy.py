@@ -236,7 +236,7 @@ class model(doublyPeriodic.model):
         self.update_state_variables()
 
     def set_A(self, A):
-        """ Set model vorticity """
+        """ Set model wave-field amplitude """
 
         self.soln[:, :, 1] = self.fft2(A)
         self._dealias_soln()
