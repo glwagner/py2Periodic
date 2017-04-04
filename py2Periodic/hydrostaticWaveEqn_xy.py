@@ -232,7 +232,14 @@ class model(doublyPeriodic.model):
         """ Set model vorticity """
 
         self.soln[:, :, 0] = self.fft2(q)
-        self.soln = self._dealias_array(self.soln)
+        self._dealias_soln()
+        self.update_state_variables()
+
+    def set_A(self, A):
+        """ Set model vorticity """
+
+        self.soln[:, :, 1] = self.fft2(A)
+        self._dealias_soln()
         self.update_state_variables()
 
     def describe_model(self):
