@@ -415,7 +415,7 @@ class model(object):
             AB3 is the 3rd-order explicity Adams-Bashforth scheme, which employs 
             solutions from prior time-steps to achieve higher-order accuracy   \n
             over forward Euler. AB3 is faster, but has a smaller linear \n
-            region compared to RK4.
+            stability region compared to RK4.
               """)
 
     def _init_time_stepper_AB3(self):
