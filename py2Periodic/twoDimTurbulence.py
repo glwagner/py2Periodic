@@ -106,7 +106,7 @@ class model(doublyPeriodic.model):
 
     def set_q(self, q):
         self.soln[:, :, 0] = self.fft2(q)
-        self.soln = self._dealias_soln(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
 
     def describe_model(self):

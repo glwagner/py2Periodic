@@ -7,6 +7,8 @@ import pyfftw, mkl, time
 #           be determined diagnostically, rather than prescribed.
 # TODO 3. For example, set dt=None for default, and specify an adaptive
 #           time-stepper.
+# TODO 4. Allow dt to be specified at run time, and generate a warning if
+#           an implicit time-stepper is specified.
 
 class model(object):
     def __init__(self, physics = None, nVars = 1, realVars = False,
@@ -15,7 +17,7 @@ class model(object):
             # Solver parameters
             t  = 0.0,  
             dt = 1.0e-2,                   # Fixed numerical time-step.
-            step = 0,                      # Initial or current step of the model
+            step = 0,                      # Initial or current step
             timeStepper = "forwardEuler",  # Time-stepping method
             nThreads = 1,                  # Number of threads for FFTW
             useFilter = False,             # Use exp jilter rather than dealias
@@ -84,9 +86,10 @@ class model(object):
 
         ll = l1*np.append(np.arange(0.0, self.ny/2.0),
             np.arange(-self.ny/2.0, 0.0) )
-
+        
+        (self.nl, self.nk) = (ll.size, kk.size)
         self.k, self.l = np.meshgrid(kk, ll)
-
+        
         # Create tuples with shapes of physical and spectral variables
         self.physVarShape = (self.ny, self.nx)
         self.physSolnShape = (self.ny, self.nx, self.nVars)
@@ -216,7 +219,7 @@ class model(object):
         substep = 0
         while True:
             if self.t >= stopTime: break
-            elif step.t + self.dt > stopTime:
+            elif self.t + self.dt > stopTime:
                 # This hook handles cases where the planned final step will 
                 # overshoot the stopTime. In this case, ten small steps are 
                 # carried out with the forward Euler scheme to finish the run.
