@@ -15,13 +15,14 @@ params = {
     'U2'         : 0.0,
     'bottomDrag' : 1.0e-7,
     'nx'         : 128,
+    'ny'         : 128,
     'dt'         : 1.0e3, 
-    'visc'       : 1.0e8, 
+    'visc'       : 0.0e8, 
     'viscOrder'  : 4.0, 
-    'timeStepper': 'AB3', 
+    'timeStepper': 'RK4', 
     'nThreads'   : 4,
     'useFilter'  : True,
-    'flatBottom' : False, 
+    'flatBottom' : True, 
 }
 
 # Create the two-layer model
@@ -54,8 +55,8 @@ for ii in np.arange(0, 1e3):
     plt.subplot(221); plt.imshow(qg.q1)
     plt.subplot(222); plt.imshow(qg.q2)
 
-    plt.subplot(223); plt.imshow(np.abs(qg.soln[0:qg.ny//2, :, 0]))
-    plt.subplot(224); plt.imshow(np.abs(qg.soln[0:qg.ny//2, :, 1]))
+    plt.subplot(223); plt.imshow(np.abs(qg.soln[0:qg.ny//2-1, :, 0]))
+    plt.subplot(224); plt.imshow(np.abs(qg.soln[0:qg.ny//2-1, :, 1]))
 
     plt.pause(0.01), plt.draw()
 

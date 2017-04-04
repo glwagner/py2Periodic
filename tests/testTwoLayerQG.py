@@ -18,9 +18,9 @@ params = {
     'dt'         : 1.0e3, 
     'visc'       : 1.0e8, 
     'viscOrder'  : 4.0, 
-    'timeStepper': 'AB3', 
+    'timeStepper': 'forwardEuler', 
     'nThreads'   : 4,
-    'useFilter'  : True,
+    'useFilter'  : False,
     'flatBottom' : True
 }
 

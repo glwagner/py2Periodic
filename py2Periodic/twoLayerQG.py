@@ -80,6 +80,7 @@ class model(doublyPeriodic.model):
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
+
         self.linearCoeff[:, :, 0] = -self._jk*self.U1 \
             - self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
 
@@ -109,7 +110,7 @@ class model(doublyPeriodic.model):
         self._jkQ1y = 1j*self.k*self.Q1y
         self._jkQ2y = 1j*self.k*self.Q2y
 
-        self._bottomDragK = self.bottomDrag*self.Ksq
+        self._bottomDragKsq = self.bottomDrag*self.Ksq
 
         # "One over" the determinant of the PV-streamfunction inversion matrix
         detM = self.Ksq*(self.Ksq + self.F1 + self.F2)
@@ -117,8 +118,8 @@ class model(doublyPeriodic.model):
         self._oneOverDetM = 1.0/detM
 
         # Streamfunctions
-        self.psi1h = np.zeros(self.physVarShape, np.dtype('complex128'))
-        self.psi2h = np.zeros(self.physVarShape, np.dtype('complex128'))
+        self.psi1h = np.zeros(self.specVarShape, np.dtype('complex128'))
+        self.psi2h = np.zeros(self.specVarShape, np.dtype('complex128'))
 
         # Vorticities and velocities
         self.q1  = np.zeros(self.physVarShape, np.dtype('float64'))
@@ -139,7 +140,7 @@ class model(doublyPeriodic.model):
         self._get_streamfunctions(q1h, q2h)
 
         # Vorticity and velocity in physical space.
-        self.q1 = self.ifft2(q1h)
+        self.q1 = self.ifft2(q1h) 
         self.q2 = self.ifft2(q2h)
 
         self.u1 = self.ifft2(-self._jl*self.psi1h)
@@ -149,10 +150,8 @@ class model(doublyPeriodic.model):
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
         # Add topographic contribution to PV
-        if self.flatBottom:
-            q2 = self.q1
-        else:
-            q2 = self.q1 + self.qTop
+        #if not self.flatBottom:
+        #    self.q2 += self.qTop
 
         # Right Hand Side of the q1-equation
         self.RHS[:, :, 0] = -self._jk*self.fft2( self.u1*self.q1 ) \
@@ -160,10 +159,10 @@ class model(doublyPeriodic.model):
                                 - self._jkQ1y*self.psi1h
 
         # Right Hand Side of the q2-equation
-        self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*q2 ) \
-                                - self._jl*self.fft2( self.v2*q2 ) \
+        self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*self.q2 ) \
+                                - self._jl*self.fft2( self.v2*self.q2 ) \
                                 - self._jkQ2y*self.psi2h \
-                                + self._bottomDragK*self.psi2h
+                                + self._bottomDragKsq*self.psi2h
 
         self._dealias_RHS()
 
@@ -180,24 +179,23 @@ class model(doublyPeriodic.model):
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
-        self.u1 = -self.ifft2(self._jl*self.psi1h)
-        self.v1 =  self.ifft2(self._jk*self.psi1h)
+        self.u1 = self.ifft2(-self._jl*self.psi1h)
+        self.v1 = self.ifft2(self._jk*self.psi1h)
 
-        self.u2 = -self.ifft2(self._jl*self.psi2h)
-        self.v2 =  self.ifft2(self._jk*self.psi2h)
+        self.u2 = self.ifft2(-self._jl*self.psi2h)
+        self.v2 = self.ifft2(self._jk*self.psi2h)
 
     def _get_streamfunctions(self, q1h, q2h):
         """ Calculate the streamfunctions psi1h and psi2h given the input 
             PV fields q1h and q2h """
 
-        self.psi1h = -self._oneOverDetM*( (self.Ksq + self.F2)*q1h + self.F1*q2h )
-        self.psi2h = -self._oneOverDetM*( self.F2*q1h + (self.Ksq + self.F1)*q2h )
+        self.psi1h = self._oneOverDetM*( -(self.Ksq + self.F2)*q1h - self.F1*q2h )
+        self.psi2h = self._oneOverDetM*( -self.F2*q1h - (self.Ksq + self.F1)*q2h )
     
     def set_bathymetry(self, h):
         """ Set the topographic PV given an input bathymetry """
 
         # TODO: Add a warning if f0 is None.
-
         self.qTop = -self.f0*h / self.H2
 
     def set_q1_and_q2(self, q1, q2):
@@ -207,7 +205,7 @@ class model(doublyPeriodic.model):
         self.soln[:, :, 0] = self.fft2(q1)
         self.soln[:, :, 1] = self.fft2(q2)
 
-        self.soln = self._dealias_soln(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
 
     def set_q1(self, q1):
@@ -215,7 +213,7 @@ class model(doublyPeriodic.model):
             state variables """
 
         self.soln[:, :, 0] = self.fft2(q1)
-        self.soln = self._dealias_soln(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
 
     def set_q2(self, q2):
@@ -223,7 +221,7 @@ class model(doublyPeriodic.model):
             state variables """
 
         self.soln[:, :, 1] = self.fft2(q2)
-        self.soln = self._dealias_soln(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
 
     def _print_status(self):

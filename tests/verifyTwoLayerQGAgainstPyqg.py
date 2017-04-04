@@ -63,12 +63,11 @@ for snapshot in m.run_with_snapshots(
     qg.step_nSteps(nSteps=nt, dnLog=nt)
     qg.update_state_variables()
 
-    fig = plt.figure('Verification', figsize=(12, 6)); plt.clf()
+    fig = plt.figure('Physical', figsize=(12, 6)); plt.clf()
 
     # Plot qg
     plt.subplot(231); plt.imshow(qg.q1) # + qg.Q1y*qg.YY)
     plt.subplot(234); plt.imshow(qg.q2) # + qg.Q2y*qg.YY)
-    plt.pause(0.01), plt.draw()
 
     # Plot pyqg
     plt.subplot(232); plt.imshow(m.q[0]) # + m.Qy1*m.y)
@@ -78,9 +77,30 @@ for snapshot in m.run_with_snapshots(
     norm = np.sqrt( (m.q[0]**2.0).mean() )
     plt.subplot(233); plt.imshow(np.abs(m.q[0]-qg.q1)/norm, vmin=0, vmax=1) # + m.Qy1*m.y)
     plt.subplot(236); plt.imshow(np.abs(m.q[1]-qg.q2)/norm, vmin=0, vmax=1) # + m.Qy2*m.y)
-    
 
-    plt.pause(0.01); plt.draw()
+    plt.pause(0.01), plt.draw()
+
+    fig = plt.figure('Spectral', figsize=(12, 6)); plt.clf()
+    q1h = qg.soln[:, :, 0]
+    q2h = qg.soln[:, :, 1]
+
+    # Plot qg
+    plt.subplot(231); plt.imshow(np.abs(q1h[0:qg.ny//2+1, :]))
+    plt.subplot(234); plt.imshow(np.abs(q2h[0:qg.ny//2+1, :]))
+
+    # Plot pyqg
+    plt.subplot(232); plt.imshow(np.abs(m.qh[0][0:m.ny//2+1, :])) # + m.Qy1*m.y)
+    plt.subplot(235); plt.imshow(np.abs(m.qh[1][0:m.ny//2+1, :])) # + m.Qy2*m.y)
+
+    # Plot difference
+    norm = np.sqrt( (np.abs(m.qh[0])**2.0).mean() )
+    del1 = m.qh[0] - q1h
+    del2 = m.qh[1] - q2h
+    plt.subplot(233); plt.imshow(np.abs(del1[0:m.ny//2+1, :])/norm, vmin=0, vmax=1) # + m.Qy1*m.y)
+    plt.subplot(236); plt.imshow(np.abs(del2[0:m.ny//2+1, :])/norm, vmin=0, vmax=1) # + m.Qy2*m.y)
+
+    plt.pause(0.01), plt.draw()
+
     
 print("Close the plot to end the program")
 plt.show()

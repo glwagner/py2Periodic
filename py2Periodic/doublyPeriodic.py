@@ -18,7 +18,7 @@ class model(object):
             step = 0,                      # Initial or current step of the model
             timeStepper = "forwardEuler",  # Time-stepping method
             nThreads = 1,                  # Number of threads for FFTW
-            useFilter = False,             # Use exp filter rather than dealias
+            useFilter = False,             # Use exp jilter rather than dealias
         ):
 
         # Default grid is square when user specifes only nx
@@ -73,16 +73,16 @@ class model(object):
         self.x, self.y = np.meshgrid(xx, yy)
 
         # Spectral grid
-        self.dk = 2.0*pi/self.Lx
-        self.dl = 2.0*pi/self.Ly
+        k1 = 2.0*pi/self.Lx
+        l1 = 2.0*pi/self.Ly
 
         if self.realVars: 
-            kk = self.dk*np.arange(0.0, self.nx/2.0+1.0)
+            kk = k1*np.arange(0.0, self.nx/2.0+1.0)
         else: 
-            kk = self.dk*np.append(np.arange(0.0, self.nx/2.0),
+            kk = k1*np.append(np.arange(0.0, self.nx/2.0),
                 np.arange(-self.nx/2.0, 0.0) )
 
-        ll = self.dl*np.append(np.arange(0.0, self.ny/2.0),
+        ll = l1*np.append(np.arange(0.0, self.ny/2.0),
             np.arange(-self.ny/2.0, 0.0) )
 
         self.k, self.l = np.meshgrid(kk, ll)
@@ -103,26 +103,24 @@ class model(object):
         self.linearCoeff = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.RHS         = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
-        # Initialize the spectral _filter if it is being used.
-        if self.useFilter:
-            self._filter = np.zeros( self.specVarShape )
+        # Initialize the spectral filter 
+        filterOrder = 4.0
+        (innerK, outerK) = (0.63, 0.65)
+        decayRate = 15.0*np.log(10.0) / (outerK-innerK)**filterOrder
 
-            # Specify filter parameters
-            filterOrder = 4.0
-            cutOffK = 0.65*pi
-            decayRate = 15.0*np.log(10.0) / (pi-cutOffK)**filterOrder
+        # Construct the filter
+        self._filter = np.zeros(self.specVarShape, np.dtype('complex128'))
 
-            # Construct the filter
-            nonDimK = np.sqrt( (self.k*self.dx)**2.0 + (self.l*self.dy)**2.0 )
-            self._filter = np.exp( -decayRate*( nonDimK-cutOffK )**filterOrder )
+        nonDimK = np.sqrt( (self.k*self.dx/pi)**2.0 + (self.l*self.dy/pi)**2.0 )
+        self._filter = np.exp( -decayRate * (nonDimK-innerK)**filterOrder )
 
-            # Set filter to 1 outside pseudo-ovoid filtering range
-            self._filter[ np.sqrt((self.k*self.dx)**2.0 \
-                + (self.l*self.dy)**2.0) < cutOffK ] = 1.0
+        # Set filter to 1 inside filtering range and 0 outside
+        self._filter[ nonDimK < innerK ] = 1.0
+        self._filter[ nonDimK > outerK ] = 0.0
 
-            # Broadcast to correct size
-            self._filter = self._filter[:, :, np.newaxis] \
-                * np.ones((1, 1, self.nVars))
+        # Broadcast to correct size
+        self._filter = self._filter[:, :, np.newaxis] \
+            * np.ones((1, 1, self.nVars))
 
     def _init_fft(self):
         """ Initialize the fast Fourier transform routine. """
@@ -150,49 +148,46 @@ class model(object):
         for iVar in np.arange(self.nVars):
             self.soln[:, :, iVar] = self.fft2(soln[:, :, iVar])
 
-        self.soln = self._dealias_soln(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
 
     def set_spectral_soln(self, soln):
         """ Initialize model with a spectral space solution """ 
 
         self.soln = soln
-        self.soln = self._dealias_soln(self.soln)
+        self._dealias_soln()
         self.update_state_variables()
             
     # Methods for model operation - - - - - - - - - - - - - - - - - - - - - - - 
     def _dealias_RHS(self):
+
         if self.useFilter:
             self.RHS *= self._filter
         elif self.realVars:
-            self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
+            self.RHS[self.ny//3:(2*self.ny)//3, :, :] = 0.0
             self.RHS[:, self.nx//3:, :] = 0.0
         else:
             self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
             self.RHS[:, self.nx//3:2*self.nx//3, :] = 0.0
 
-    def _dealias_soln(self, soln):
-        """ Dealias the Fourier transform of an soln """
+    def _dealias_soln(self):
+        """ Dealias the Fourier transform of the soln array """
 
         if self.useFilter:
-            soln *= self._filter
+            self.soln *= self._filter
         elif self.realVars:
-            soln[self.nx//3:2*self.nx//3, :, :] = 0.0
-            soln[:, self.ny//3:, :] = 0.0
+            self.soln[self.ny//3:2*self.ny//3, :, :] = 0.0
+            self.soln[:, self.nx//3:, :] = 0.0
         else:
-            soln[self.ny//3:2*self.ny//3, :, :] = 0.0
-            soln[:, self.nx//3:2*self.nx//3, :] = 0.0
+            self.soln[self.ny//3:2*self.ny//3, :, :] = 0.0
+            self.soln[:, self.nx//3:2*self.nx//3, :] = 0.0
         
-        return soln
-
     def _dealias_var(self, var):
-        """ Dealias the Fourier transform of an soln """
+        """ Dealias the Fourier transform of a single variable """
 
-        if self.useFilter:
-            var *= self._filter[:, :, 0]
-        elif self.realVars:
-            var[self.nx//3:2*self.nx//3, :] = 0.0
-            var[:, self.ny//3:] = 0.0
+        if self.realVars:
+            var[self.ny//3:2*self.ny//3, :] = 0.0
+            var[:, self.nx//3:] = 0.0
         else:
             var[self.ny//3:2*self.ny//3, :] = 0.0
             var[:, self.nx//3:2*self.nx//3] = 0.0
