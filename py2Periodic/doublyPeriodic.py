@@ -65,13 +65,13 @@ class model(object):
 
         # Copy the model inputs into an independent dictionary prior to running 
         # initialization routines
-        self._input = self.__dict__.copy()
+        self._input = self.__dict__.deepcopy()
 
-        # Defined in doublyPeriodic Base Class 
+        # Initialization routines defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()
         self._init_fft()
 
-        # Defined in the physical problem's subclass
+        # Initialization routines defined in the physical problem's subclass
         self._init_problem_parameters()
         self._init_linear_coeff()
 
