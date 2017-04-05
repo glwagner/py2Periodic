@@ -65,7 +65,7 @@ class model(object):
 
         # Copy the model inputs into an independent dictionary prior to running 
         # initialization routines
-        self._input = self.__dict__.deepcopy()
+        self._input = self.__dict__.copy()
 
         # Initialization routines defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()

@@ -3,7 +3,7 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = "twoLayerQuasigeostrophicExample", 
+    def __init__(self, name = "twoLayerTracers", 
             # Grid parameters
             nx = 256, ny = None, Lx = 1e6, Ly = None, 
             # Solver parameters
@@ -28,14 +28,17 @@ class model(doublyPeriodic.model):
             bottomDrag = 0.0,
             visc = 1e0,
             viscOrder = 4.0,
+            ## Horizontal diffusivity
+            hDiff = 1e0,
+            hDiffOrder = 4.0,
             ## Flag to activate bathymetry
             topography = False,
         ):
 
         # Initialize super-class.
         doublyPeriodic.model.__init__(self, 
-            physics = "two layer quasi-geostrophic flow",
-            nVars = 2, 
+            physics = "two layer quasi-geostrophic flow with tracers",
+            nVars = 4, 
             realVars = True,
             # Persistent doublyPeriodic initialization arguments 
             nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
@@ -54,14 +57,22 @@ class model(doublyPeriodic.model):
         self.bottomDrag = bottomDrag
         self.visc = visc
         self.viscOrder = viscOrder
+        self.hdiff = hdiff
+        self.hdiffOrder = hdiffOrder
         self.topography = topography
 
         # Initialize variables and parameters specific to the problem
         self._init_model()
 
         # Set the initial condition to default.
-        self.set_physical_soln( \
-            1e-1*np.random.standard_normal(self.physSolnShape))
+        q1 = 1e-1*np.random.standard_normal(self.physVarShape))
+        q2 = 1e-1*np.random.standard_normal(self.physVarShape))
+        c1 = np.ones(self.physVarShape)
+        c2 = np.zeros(self.physVarShape)
+
+        self.set_q1_and_q2(q1, q2)
+        self.set_c1_and_c2(c1, c2)
+
         self.update_state_variables()
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -73,6 +84,7 @@ class model(doublyPeriodic.model):
             vorticity in each layer.
         """)
 
+
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
@@ -82,6 +94,13 @@ class model(doublyPeriodic.model):
 
         self.linearCoeff[:, :, 1] = -self._jk*self.U2 \
             - self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
+
+        self.linearCoeff[:, :, 2] = -self._jk*self.U1 \
+            - self.hDiff*(self.k**2.0 + self.l**2.0)**(self.hDiffOrder/2.0)
+
+        self.linearCoeff[:, :, 3] = -self._jk*self.U2 \
+            - self.hDiff*(self.k**2.0 + self.l**2.0)**(self.hDiffOrder/2.0)
+
 
     def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
@@ -117,20 +136,26 @@ class model(doublyPeriodic.model):
         self.psi1h = np.zeros(self.specVarShape, np.dtype('complex128'))
         self.psi2h = np.zeros(self.specVarShape, np.dtype('complex128'))
 
-        # Vorticities and velocities
+        # Vorticities, tracers, and velocities
         self.q1  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.q2  = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        self.c1  = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.c2  = np.zeros(self.physVarShape, np.dtype('float64'))
 
         self.u1  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.u2  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v1  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v2  = np.zeros(self.physVarShape, np.dtype('float64'))
 
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """
 
         q1h = soln[:, :, 0]
         q2h = soln[:, :, 1]
+        c1h = soln[:, :, 2]
+        c2h = soln[:, :, 3]
 
         # Get self.psi1h and self.psi2h
         self._get_streamfunctions(q1h, q2h)
@@ -138,6 +163,9 @@ class model(doublyPeriodic.model):
         # Vorticity and velocity in physical space.
         self.q1 = self.ifft2(q1h) 
         self.q2 = self.ifft2(q2h)
+
+        self.c1 = self.ifft2(c1h) 
+        self.c2 = self.ifft2(c2h)
 
         self.u1 = self.ifft2(-self._jl*self.psi1h)
         self.v1 = self.ifft2(self._jk*self.psi1h)
@@ -160,13 +188,26 @@ class model(doublyPeriodic.model):
                                 - self._jkQ2y*self.psi2h \
                                 + self._bottomDragKsq*self.psi2h
 
+        # Right Hand Side of the c1-equation
+        self.RHS[:, :, 2] = -self._jk*self.fft2( self.u1*self.c1 ) \
+                                - self._jl*self.fft2( self.v1*self.c1 ) \
+                                - self.fft2(self.kappa*( self.c1 - self.c2 ))
+
+        # Right Hand Side of the c2-equation
+        self.RHS[:, :, 3] = -self._jk*self.fft2( self.u2*self.c2 ) \
+                                - self._jl*self.fft2( self.v2*self.c2 ) \
+                                + self.fft2(self.kappa*( self.c1 - self.c2 ))
+
         self._dealias_RHS()
+
 
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
 
         q1h = self.soln[:, :, 0]
         q2h = self.soln[:, :, 1]
+        c1h = self.soln[:, :, 2]
+        c2h = self.soln[:, :, 3]
 
         # Get streamfunctions
         self._get_streamfunctions(q1h, q2h) 
@@ -175,11 +216,15 @@ class model(doublyPeriodic.model):
         self.q1 = self.ifft2(q1h)
         self.q2 = self.ifft2(q2h)
 
+        self.c1 = self.ifft2(c1h)
+        self.c2 = self.ifft2(c2h)
+
         self.u1 = self.ifft2(-self._jl*self.psi1h)
         self.v1 = self.ifft2(self._jk*self.psi1h)
 
         self.u2 = self.ifft2(-self._jl*self.psi2h)
         self.v2 = self.ifft2(self._jk*self.psi2h)
+
 
     def _get_streamfunctions(self, q1h, q2h):
         """ Calculate the streamfunctions psi1h and psi2h given the input 
@@ -188,11 +233,19 @@ class model(doublyPeriodic.model):
         self.psi1h = self._oneOverDetM*( -(self.Ksq + self.F2)*q1h - self.F1*q2h )
         self.psi2h = self._oneOverDetM*( -self.F2*q1h - (self.Ksq + self.F1)*q2h )
     
+
     def set_topography(self, h):
         """ Set the topographic PV given an input bathymetry """
 
-        # TODO: Add a warning if f0 is None.
+        # TODO: Add an error if f0 is None.
         self.qTop = -self.f0*h / self.H2
+
+
+    def set_kappa(self, kappa):
+        """ Set the vertical diffusivity, kappa, which may be a function of space """
+
+        self.kappa = kappa
+
 
     def set_q1_and_q2(self, q1, q2):
         """ Update the model state by setting q1 and q2 and calculating 
@@ -204,6 +257,18 @@ class model(doublyPeriodic.model):
         self._dealias_soln()
         self.update_state_variables()
 
+
+    def set_c1_and_c2(self, c1, c2):
+        """ Update the model state by setting q1 and q2 and calculating 
+            state variables """
+
+        self.soln[:, :, 2] = self.fft2(c1)
+        self.soln[:, :, 3] = self.fft2(c2)
+
+        self._dealias_soln()
+        self.update_state_variables()
+
+
     def set_q1(self, q1):
         """ Update the model state by setting q1 and calculating 
             state variables """
@@ -212,6 +277,7 @@ class model(doublyPeriodic.model):
         self._dealias_soln()
         self.update_state_variables()
 
+
     def set_q2(self, q2):
         """ Update the model state by setting q2 and calculating 
             state variables """
@@ -219,6 +285,7 @@ class model(doublyPeriodic.model):
         self.soln[:, :, 1] = self.fft2(q2)
         self._dealias_soln()
         self.update_state_variables()
+
 
     def _print_status(self):
         """ Print model status """
@@ -246,6 +313,7 @@ class model(doublyPeriodic.model):
         )
 
         self.timer = time.time()
+
 
     def describe_model(self):
         """ Describe the current model state """
