@@ -31,8 +31,10 @@ class model(doublyPeriodic.model):
             ## Horizontal diffusivity
             hDiff = 1e0,
             hDiffOrder = 4.0,
-            ## Flag to activate bathymetry
+            ## Flag to activate topography, forcing, and sponge
             topography = False,
+            forcing = False,
+            sponge = False,
         ):
 
         # Initialize super-class.
@@ -57,21 +59,24 @@ class model(doublyPeriodic.model):
         self.bottomDrag = bottomDrag
         self.visc = visc
         self.viscOrder = viscOrder
-        self.hdiff = hdiff
-        self.hdiffOrder = hdiffOrder
+        self.hDiff = hDiff
+        self.hDiffOrder = hDiffOrder
         self.topography = topography
 
         # Initialize variables and parameters specific to the problem
         self._init_model()
 
-        # Set the initial condition to default.
-        q1 = 1e-1*np.random.standard_normal(self.physVarShape))
-        q2 = 1e-1*np.random.standard_normal(self.physVarShape))
-        c1 = np.ones(self.physVarShape)
+        # Set a default initial condition.
+        q1 = 1e-1*np.random.standard_normal(self.physVarShape)
+        q2 = 1e-1*np.random.standard_normal(self.physVarShape)
+
+        (x0, y0, r) = (self.Lx/2.0, self.Ly/2.0, self.Lx/20.0)
+        c1 = np.exp( -((self.x-x0)**2.0 + (self.y-y0)**2.0) / (2.0*r**2.0))
         c2 = np.zeros(self.physVarShape)
 
         self.set_q1_and_q2(q1, q2)
         self.set_c1_and_c2(c1, c2)
+        self.set_kappa(1e-4*np.ones(self.physVarShape))
 
         self.update_state_variables()
         
@@ -147,6 +152,9 @@ class model(doublyPeriodic.model):
         self.u2  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v1  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v2  = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        if self.topography:
+            self.qTop = np.zeros(self.physVarShape, np.dtype('float64'))
 
 
     def _calc_right_hand_side(self, soln, t):
@@ -242,7 +250,7 @@ class model(doublyPeriodic.model):
 
 
     def set_kappa(self, kappa):
-        """ Set the vertical diffusivity, kappa, which may be a function of space """
+        """ Set the spatially-varying vertical diffusivity, kappa """
 
         self.kappa = kappa
 
