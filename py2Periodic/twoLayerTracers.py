@@ -185,32 +185,33 @@ class model(doublyPeriodic.model):
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
         # "Premature optimization is the root of all evil"
+        #       - Donald Knuth
 
         # Add topographic contribution to PV
         self.q2 += self.qTop
 
         # Right Hand Side of the q1-equation
         self.RHS[:, :, 0] = -self._jk*self.fft2( self.u1*self.q1 ) \
-                                - self._jl*self.fft2( self.v1*self.q1 ) \
-                                - self._jkQ1y*self.psi1h \
+            - self._jl*self.fft2( self.v1*self.q1 ) \
+            - self._jkQ1y*self.psi1h \
 
         # Right Hand Side of the q2-equation
         self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*self.q2 ) \
-                                - self._jl*self.fft2( self.v2*self.q2 ) \
-                                - self._jkQ2y*self.psi2h \
-                                + self._bottomDragKsq*self.psi2h \
+            - self._jl*self.fft2( self.v2*self.q2 ) \
+            - self._jkQ2y*self.psi2h \
+            + self._bottomDragKsq*self.psi2h \
 
         # Right Hand Side of the c1-equation
         self.RHS[:, :, 2] = -self._jk*self.fft2( self.u1*self.c1 ) \
-                               - self._jl*self.fft2( self.v1*self.c1 ) \
-                                + self.fft2( self.c1Source + self.c1Sponge*self.c1 \
-                                    - self.kappa*( self.c1 - self.c2 ) )
+            - self._jl*self.fft2( self.v1*self.c1 ) \
+            + self.fft2( self.c1Source + self.c1Sponge*self.c1 \
+            - self.kappa*( self.c1/self.H1 - self.c2/self.H2 ) )
 
         # Right Hand Side of the c2-equation
         self.RHS[:, :, 3] = -self._jk*self.fft2( self.u2*self.c2 ) \
-                                - self._jl*self.fft2( self.v2*self.c2 ) \
-                                + self.fft2( self.c2Source + self.c2Sponge*self.c2 \
-                                    + self.kappa*( self.c1 - self.c2 ) )
+            - self._jl*self.fft2( self.v2*self.c2 ) \
+            + self.fft2( self.c2Source + self.c2Sponge*self.c2 \
+            + self.kappa*( self.c1/self.H1 - self.c2/self.H2 ) )
 
         self._dealias_RHS()
 
