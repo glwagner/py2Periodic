@@ -28,8 +28,6 @@ class model(doublyPeriodic.model):
             bottomDrag = 0.0,
             visc = 1e0,
             viscOrder = 4.0,
-            ## Flag to activate bathymetry
-            topography = False,
         ):
 
         # Initialize super-class.
@@ -54,7 +52,6 @@ class model(doublyPeriodic.model):
         self.bottomDrag = bottomDrag
         self.visc = visc
         self.viscOrder = viscOrder
-        self.topography = topography
 
         # Initialize variables and parameters specific to the problem
         self._init_model()
@@ -126,6 +123,9 @@ class model(doublyPeriodic.model):
         self.v1  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v2  = np.zeros(self.physVarShape, np.dtype('float64'))
 
+        # Topographic PV
+        self.qTop = np.zeros(self.physVarShape, np.dtype('float64'))
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """
 
@@ -145,9 +145,9 @@ class model(doublyPeriodic.model):
         self.u2 = self.ifft2(-self._jl*self.psi2h)
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
+        # "Premature optimization is the root of all evil"
         # Add topographic contribution to PV
-        if self.topography:
-            self.q2 += self.qTop
+        self.q2 += self.qTop
 
         # Right Hand Side of the q1-equation
         self.RHS[:, :, 0] = -self._jk*self.fft2( self.u1*self.q1 ) \

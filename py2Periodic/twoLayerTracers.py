@@ -31,10 +31,6 @@ class model(doublyPeriodic.model):
             ## Horizontal diffusivity
             hDiff = 1e0,
             hDiffOrder = 4.0,
-            ## Flag to activate topography, forcing, and sponge
-            topography = False,
-            forcing = False,
-            sponge = False,
         ):
 
         # Initialize super-class.
@@ -49,19 +45,21 @@ class model(doublyPeriodic.model):
             
         # Parameters specific to the Physical Problem
         self.name = name
+
         self.f0 = f0
         self.beta = beta
         self.defRadius = defRadius
+
         self.H1 = H1
         self.H2 = H2
         self.U1 = U1
         self.U2 = U2
+
         self.bottomDrag = bottomDrag
         self.visc = visc
         self.viscOrder = viscOrder
         self.hDiff = hDiff
         self.hDiffOrder = hDiffOrder
-        self.topography = topography
 
         # Initialize variables and parameters specific to the problem
         self._init_model()
@@ -153,8 +151,13 @@ class model(doublyPeriodic.model):
         self.v1  = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v2  = np.zeros(self.physVarShape, np.dtype('float64'))
 
-        if self.topography:
-            self.qTop = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.qTop = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        self.c1Source = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.c2Source = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        self.c1Sponge = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.c2Sponge = np.zeros(self.physVarShape, np.dtype('float64'))
 
 
     def _calc_right_hand_side(self, soln, t):
@@ -181,30 +184,33 @@ class model(doublyPeriodic.model):
         self.u2 = self.ifft2(-self._jl*self.psi2h)
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
+        # "Premature optimization is the root of all evil"
+
         # Add topographic contribution to PV
-        if self.topography:
-            self.q2 += self.qTop
+        self.q2 += self.qTop
 
         # Right Hand Side of the q1-equation
         self.RHS[:, :, 0] = -self._jk*self.fft2( self.u1*self.q1 ) \
                                 - self._jl*self.fft2( self.v1*self.q1 ) \
-                                - self._jkQ1y*self.psi1h
+                                - self._jkQ1y*self.psi1h \
 
         # Right Hand Side of the q2-equation
         self.RHS[:, :, 1] = -self._jk*self.fft2( self.u2*self.q2 ) \
                                 - self._jl*self.fft2( self.v2*self.q2 ) \
                                 - self._jkQ2y*self.psi2h \
-                                + self._bottomDragKsq*self.psi2h
+                                + self._bottomDragKsq*self.psi2h \
 
         # Right Hand Side of the c1-equation
         self.RHS[:, :, 2] = -self._jk*self.fft2( self.u1*self.c1 ) \
-                                - self._jl*self.fft2( self.v1*self.c1 ) \
-                                - self.fft2(self.kappa*( self.c1 - self.c2 ))
+                               - self._jl*self.fft2( self.v1*self.c1 ) \
+                                + self.fft2( self.c1Source + self.c1Sponge*self.c1 \
+                                    - self.kappa*( self.c1 - self.c2 ) )
 
         # Right Hand Side of the c2-equation
         self.RHS[:, :, 3] = -self._jk*self.fft2( self.u2*self.c2 ) \
                                 - self._jl*self.fft2( self.v2*self.c2 ) \
-                                + self.fft2(self.kappa*( self.c1 - self.c2 ))
+                                + self.fft2( self.c2Source + self.c2Sponge*self.c2 \
+                                    + self.kappa*( self.c1 - self.c2 ) )
 
         self._dealias_RHS()
 
@@ -249,6 +255,20 @@ class model(doublyPeriodic.model):
         self.qTop = -self.f0*h / self.H2
 
 
+    def set_tracer_sponges(self, c1Sponge, c2Sponge):
+        """ Set sponge layers to absorb layer 1 and 2 tracers """
+
+        self.c1Sponge = c1Sponge
+        self.c2Sponge = c2Sponge
+
+
+    def set_tracer_sources(self, c1Source, c2Source):
+        """ Set source terms for layer 1 and 2 tracers """
+
+        self.c1Source = c1Source
+        self.c2Source = c2Source
+
+
     def set_kappa(self, kappa):
         """ Set the spatially-varying vertical diffusivity, kappa """
 
@@ -261,17 +281,6 @@ class model(doublyPeriodic.model):
 
         self.soln[:, :, 0] = self.fft2(q1)
         self.soln[:, :, 1] = self.fft2(q2)
-
-        self._dealias_soln()
-        self.update_state_variables()
-
-
-    def set_c1_and_c2(self, c1, c2):
-        """ Update the model state by setting q1 and q2 and calculating 
-            state variables """
-
-        self.soln[:, :, 2] = self.fft2(c1)
-        self.soln[:, :, 3] = self.fft2(c2)
 
         self._dealias_soln()
         self.update_state_variables()
@@ -291,6 +300,35 @@ class model(doublyPeriodic.model):
             state variables """
 
         self.soln[:, :, 1] = self.fft2(q2)
+        self._dealias_soln()
+        self.update_state_variables()
+
+
+    def set_c1_and_c2(self, c1, c2):
+        """ Update the model state by setting q1 and q2 and calculating 
+            state variables """
+
+        self.soln[:, :, 2] = self.fft2(c1)
+        self.soln[:, :, 3] = self.fft2(c2)
+
+        self._dealias_soln()
+        self.update_state_variables()
+
+
+    def set_c1(self, c1):
+        """ Update the model state by setting c1 and calculating 
+            state variables """
+
+        self.soln[:, :, 2] = self.fft2(c1)
+        self._dealias_soln()
+        self.update_state_variables()
+
+
+    def set_c2(self, c2):
+        """ Update the model state by setting c2 and calculating 
+            state variables """
+
+        self.soln[:, :, 3] = self.fft2(c2)
         self._dealias_soln()
         self.update_state_variables()
 

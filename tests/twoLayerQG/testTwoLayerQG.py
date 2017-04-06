@@ -21,7 +21,6 @@ params = {
     'timeStepper': 'AB3', 
     'nThreads'   : 4,
     'useFilter'  : False,
-    'topography' : False,
 }
 
 # Create the two-layer model
