@@ -12,14 +12,15 @@ class model(doublyPeriodic.model):
             step = 0, 
             timeStepper = "RK4",            # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
+            useFilter = False,
             #
-            # Near-inertial equation params: rotating and gravitating Earth 
+            # Linearized Boussinesq params
             f0 = 1.0, 
             kappa = 4.0, 
-            # Friction: 4th order hyperviscosity
-            waveVisc = 1.0e-4,
+            # Friction
+            waveVisc = 0.0,
             waveViscOrder = 2.0,
-            waveDiff = 1.0e-4,
+            waveDiff = 0.0,
             waveDiffOrder = 2.0,
             meanVisc = 1.0e-4,
             meanViscOrder = 2.0,
@@ -52,13 +53,13 @@ class model(doublyPeriodic.model):
         
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/20
-        q0 = 0.1*self.f0 * exp( \
-            - ( (self.XX-self.Lx/2.0)**2.0 + (self.YY-self.Ly/2.0)**2.0 ) \
+        q0 = 0.1*self.f0 * np.exp( \
+            - ( (self.x-self.Lx/2.0)**2.0 + (self.y-self.Ly/2.0)**2.0 ) \
             / (2*rVortex**2.0) \
                        )
 
         # Default wave initial condition: uniform velocity.
-        u, v, p = self.make_plane_wave(4)
+        u, v, p = self.make_plane_wave(16)
         self.set_uvp(u, v, p)
         self.set_q(q0)
         self.update_state_variables()
@@ -78,7 +79,7 @@ class model(doublyPeriodic.model):
             from the vertical mode eigenproblem.
         """)
 
-    def _set_linear_coeff(self):
+    def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
         # Two-dimensional turbulent viscosity.
@@ -209,16 +210,16 @@ class model(doublyPeriodic.model):
 
         # Dimensional wavenumber and dispersion-relation frequency
         kDim = 2.0*pi/self.Lx * kNonDim
-        sigma = self.f0*sqrt(1 + kDim/self.kappa)
+        sigma = self.f0*np.sqrt(1 + kDim/self.kappa)
 
         # Wave field amplitude. 
         #alpha = sigma**2.0 / self.f0**2.0 - 1.0
         a = 1.0 
 
         # A hydrostatic plane wave. s > sqrt(s^2+f^2)/sqrt(2) when s>f
-        p = a * (sigma**2.0-self.f0**2.0) * cos(kDim*self.XX)
-        u = a * kDim*sigma   * cos(kDim*self.XX)
-        v = a * kDim*self.f0 * sin(kDim*self.XX)
+        p = a * (sigma**2.0-self.f0**2.0) * np.cos(kDim*self.x)
+        u = a * kDim*sigma   * np.cos(kDim*self.x)
+        v = a * kDim*self.f0 * np.sin(kDim*self.x)
 
         return u, v, p
 
