@@ -54,8 +54,8 @@ class model(doublyPeriodic.model):
 
         ## Default vorticity initial condition: Gaussian vortex
         rVortex = self.Lx/10.0
-        (x0, y0) = (self.Lx/2.0, self.Ly/2.0)
-        q0 = -0.05*self.f0 * np.exp( -( (self.x-x0)**2.0 + (self.y-y0)**2.0 ) \
+        x0, y0 = self.Lx/2.0, self.Ly/2.0
+        q0 = 0.05*self.f0 * np.exp( -( (self.x-x0)**2.0 + (self.y-y0)**2.0 ) \
             / (2*rVortex**2.0) \
         )
         soln[:, :, 0] = q0
@@ -82,7 +82,8 @@ class model(doublyPeriodic.model):
             There are two prognostic variables: wave amplitude, and mean vorticity.
         """)
 
-    def _set_linear_coeff(self):
+
+    def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
         # Two-dimensional turbulent part.
@@ -95,7 +96,7 @@ class model(doublyPeriodic.model):
 
         self.linearCoeff[:, :, 1] = waveDissipation \
             + self._invE*1j*self.alpha*self.sigma*waveDispersion
-       
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of PDE """
 
@@ -161,7 +162,7 @@ class model(doublyPeriodic.model):
         self._dealias_RHS()
          
     def _init_problem_parameters(self):
-        """ Pre-allocate parameters in memory in addition to the solution """
+        """ Pre-allocate parameters in memory """
 
         # Frequency parameter
         self.alpha = (self.sigma**2.0 - self.f0**2.0) / self.f0**2.0
@@ -199,6 +200,8 @@ class model(doublyPeriodic.model):
         self.Ayy = np.zeros(self.physVarShape, np.dtype('complex128'))
         self.Axy = np.zeros(self.physVarShape, np.dtype('complex128'))
 
+
+   
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
 
@@ -225,6 +228,7 @@ class model(doublyPeriodic.model):
         self.u = np.real( self.ifft2(uh) + np.conj(self.ifft2(uh)) )
         self.v = np.real( self.ifft2(vh) + np.conj(self.ifft2(vh)) )
 
+
     def set_q(self, q):
         """ Set model vorticity """
 
@@ -232,12 +236,14 @@ class model(doublyPeriodic.model):
         self._dealias_soln()
         self.update_state_variables()
 
+
     def set_A(self, A):
         """ Set model wave-field amplitude """
 
         self.soln[:, :, 1] = self.fft2(A)
         self._dealias_soln()
         self.update_state_variables()
+
 
     def describe_model(self):
         """ Describe the current model state """

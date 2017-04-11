@@ -1,8 +1,8 @@
 import numpy as np; from numpy import pi
 import pyfftw
 import mkl
-import time
 import h5py
+import time
 
 # TODO 1. Add an exception error for the violation of physical
 #           conditions, if physical parameters are unset, etc.
@@ -148,17 +148,17 @@ class model(object):
         pyfftw.interfaces.cache.enable() 
 
         if self.realVars:
-            self.fft2 = (lambda x :
+            self.fft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.rfft2(x, threads=self.nThreads, \
                             planner_effort='FFTW_ESTIMATE'))
-            self.ifft2 = (lambda x :
+            self.ifft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.irfft2(x, threads=self.nThreads, \
                             planner_effort='FFTW_ESTIMATE'))
         else:
-            self.fft2 = (lambda x :
+            self.fft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.fft2(x, threads=self.nThreads, \
                             planner_effort='FFTW_ESTIMATE'))
-            self.ifft2 = (lambda x :
+            self.ifft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.ifft2(x, threads=self.nThreads, \
                             planner_effort='FFTW_ESTIMATE'))
 
@@ -223,6 +223,30 @@ class model(object):
             self._step_forward()
             if (substep+1) % dnLog == 0.0:
                 self._print_status()
+
+    def step_nSteps_and_average(self, nSteps=1e2, dnLog=float('Inf')):
+        """ Step forward nStep times """
+
+        if not hasattr(self, 'timer'): self.timer = time.time()
+
+        # If avgSoln already exists, continue to average
+        if not hasattr(self, 'avgSoln'): 
+            self.avgSoln = np.zeros(self.specSolnShape, 'complex128')
+
+        for substep in xrange(int(nSteps)):
+
+            # Store solution and time-step prior to stepping forward
+            dt0 = self.dt
+            soln0 = self.soln.copy()
+
+            self._step_forward()
+
+            # Accumulate average using the trapezoidal rule
+            self.avgSoln += (soln0+self.soln) / (2.0*dt0)
+
+            if (substep+1) % dnLog == 0.0:
+                self._print_status()
+
 
     def step_until(self, stopTime=None, dnLog=float('Inf')):
         """ Step forward nStep times """

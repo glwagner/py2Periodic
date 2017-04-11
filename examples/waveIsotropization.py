@@ -5,19 +5,19 @@ import numpy as np; from numpy import pi
 import time
 import matplotlib.pyplot as plt
 
-# Parameters
-nx = 256
-Lx = 1e6
+# Parameters:
+# * Physical
 f0 = 1e-4
-dt = 0.05 * 2.0*pi/f0
 alpha = 1
 sigma = f0*np.sqrt(1+alpha)
 kappa = 32.0*pi / (Lx*np.sqrt(alpha))
-
-turbVisc = 3e8
-turbViscOrder = 4.0
-waveVisc = 1e24
-waveViscOrder = 8.0
+# * Numerical
+dt = 0.05 * 2.0*pi/f0
+nx = 256
+Lx = 1e6
+# * Frictional
+(turbVisc, turbViscOrder) = (3e8, 4.0)
+(waveVisc, waveViscOrder) = (1e24, 8,0)
 
 # Initialize models
 turb = twoDimTurbulence.model(nx=nx, Lx=Lx, dt=dt, visc=turbVisc, 

@@ -1,0 +1,65 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+class plotter(object):
+    def __init__(self, qg, name='Plot'):
+
+        self.qg = qg
+        self.name = name
+
+        self.q1 = qg.q1
+        self.q2 = qg.q2
+        self.c1 = qg.c1
+        self.c2 = qg.c2
+
+        self.initialize_plot()
+
+    def initialize_plot(self):
+
+        self.fig, self.axArr = plt.subplots(nrows=2, ncols=2,
+            sharex=True, sharey=True, figsize=(8, 8));
+
+        fig = self.fig
+        axArr = self.axArr
+
+        fig.canvas.set_window_title(self.name)
+        
+        fig.subplots_adjust(hspace=0.1, wspace=0.1, 
+            right=0.80, top=0.92, bottom=0.15)
+
+        axArr[0, 0].set_ylabel("$y$ (km)", labelpad=12.0)
+        axArr[1, 0].set_ylabel("$y$ (km)", labelpad=12.0)
+
+        axArr[1, 0].set_xlabel("$x$ (km)", labelpad=5.0)
+        axArr[1, 1].set_xlabel("$x$ (km)", labelpad=5.0)
+
+        self.box = axArr[0, 1].get_position()
+
+        self.pad, self.width = 0.02, 0.03
+
+    def make_plot(self):
+
+        fig = self.fig
+        axArr = self.axArr
+        qg = self.qg
+        box = self.box
+        pad, width = self.pad, self.width
+
+        Ro = 2e-1
+        qmin, qmax = -Ro, Ro
+        cmin, cmax = 1e-2*qg.c1.max(), qg.c1.max()
+        xkm, ykm = qg.x*1e-3, qg.y*1e-3
+
+        mesh = \
+        axArr[0, 0].pcolormesh(xkm, ykm, qg.q1/qg.f0, vmin=qmin, vmax=qmax, 
+            cmap='RdBu_r')
+        axArr[0, 1].pcolormesh(xkm, ykm, qg.q2/(qg.f0*qg.delta), vmin=qmin, vmax=qmax,
+            cmap='RdBu_r')
+
+        axArr[1, 0].pcolormesh(xkm, ykm, qg.c1, vmin=cmin, vmax=cmax)
+        axArr[1, 1].pcolormesh(xkm, ykm, qg.c2*qg.delta, vmin=cmin, vmax=cmax)
+
+        cax = fig.add_axes([box.xmax + pad, box.ymin, width, box.height]) 
+        fig.colorbar(mesh, cax=cax)
+               
+        return fig

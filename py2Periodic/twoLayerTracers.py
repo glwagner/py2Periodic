@@ -31,6 +31,8 @@ class model(doublyPeriodic.model):
             ## Horizontal diffusivity
             hDiff = 1e0,
             hDiffOrder = 4.0,
+            ## Vertical diffusivity
+            kappa = None,
         ):
 
         # Initialize super-class.
@@ -74,7 +76,13 @@ class model(doublyPeriodic.model):
 
         self.set_q1_and_q2(q1, q2)
         self.set_c1_and_c2(c1, c2)
-        self.set_kappa(1e-4*np.ones(self.physVarShape))
+
+        if kappa is None:
+            # Set default kappa
+            self.set_kappa(1e-4*np.ones(self.physVarShape))
+        else:
+            # Set uniform kappa equal to input value
+            self.set_kappa(kappa*np.ones(self.physVarShape))
 
         self.update_state_variables()
         
@@ -204,13 +212,13 @@ class model(doublyPeriodic.model):
         # Right Hand Side of the c1-equation
         self.RHS[:, :, 2] = -self._jk*self.fft2( self.u1*self.c1 ) \
             - self._jl*self.fft2( self.v1*self.c1 ) \
-            + self.fft2( self.c1Source + self.c1Sponge*self.c1 \
+            + self.fft2( self.c1Source - self.c1Sponge*self.c1 \
             - self.kappa*( self.c1/self.H1 - self.c2/self.H2 ) )
 
         # Right Hand Side of the c2-equation
         self.RHS[:, :, 3] = -self._jk*self.fft2( self.u2*self.c2 ) \
             - self._jl*self.fft2( self.v2*self.c2 ) \
-            + self.fft2( self.c2Source + self.c2Sponge*self.c2 \
+            + self.fft2( self.c2Source - self.c2Sponge*self.c2 \
             + self.kappa*( self.c1/self.H1 - self.c2/self.H2 ) )
 
         self._dealias_RHS()
@@ -352,11 +360,12 @@ class model(doublyPeriodic.model):
 
         CFL1 = maxSpeed1 * self.dt * self.nx/self.Lx
         CFL2 = maxSpeed2 * self.dt * self.nx/self.Lx
+        maxCFL = np.array((CFL1, CFL2)).max()
     
         print( \
             "step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
             "t = {:.2e} s, KE = {:.2e}, ".format(self.t, KE) + \
-            "CFL1 = {:.3f}, CFL2 = {:.3f}".format(CFL1, CFL2) \
+            "CFL = {:.3f}".format(maxCFL) \
         )
 
         self.timer = time.time()
