@@ -85,6 +85,13 @@ class model(doublyPeriodic.model):
             self.set_kappa(kappa*np.ones(self.physVarShape))
 
         self.update_state_variables()
+
+        # Initialize default diagnostics
+        self.add_diagnostic('CFL', lambda self: self._diag_calc_CFL(),
+            description="Maximum CFL number in the model solution")
+
+        self.add_diagnostic('KE', lambda self: self._diag_calc_KE(),
+            description="Total kinetic energy in the two-layer flow")
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_physics(self):
@@ -346,26 +353,15 @@ class model(doublyPeriodic.model):
         """ Print model status """
         tc = time.time() - self.timer
 
-        # Calculate kinetic energy
+        # Update model state and calculate diagnostics
         self.update_state_variables() 
-        KE1 = (self.Lx*self.Ly)/(self.nx*self.ny) \
-            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi1h)**2.0 ).sum()
-        KE2 = (self.Lx*self.Ly)/(self.nx*self.ny) \
-            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi2h)**2.0 ).sum()
-        KE = KE1 + KE2
+        self.evaluate_diagnostics()
 
-        # Calculate CFL number
-        maxSpeed1 = (np.sqrt(self.u1**2.0 + self.v1**2.0)).max()
-        maxSpeed2 = (np.sqrt(self.u2**2.0 + self.v2**2.0)).max()
-
-        CFL1 = maxSpeed1 * self.dt * self.nx/self.Lx
-        CFL2 = maxSpeed2 * self.dt * self.nx/self.Lx
-        maxCFL = np.array((CFL1, CFL2)).max()
-    
         print( \
-            "step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
-            "t = {:.2e} s, KE = {:.2e}, ".format(self.t, KE) + \
-            "CFL = {:.3f}".format(maxCFL) \
+            "step = {:.2e}, clock = {:.2e} s,".format(self.step, tc) \
+            " t = {:.2e} s,".format(self.t) \
+            " max Ro = {:.3f},".format(self.diagnostics['maxRo']['value']) \
+            " CFL = {:.3f}".format(self.diagnostics['CFL']['value']) \
         )
 
         self.timer = time.time()
@@ -386,3 +382,40 @@ class model(doublyPeriodic.model):
                 " Layer depth ratio  : {:.2f} \n".format(self.delta) + \
                 " Comp. threads      : {:d} \n".format(self.nThreads) \
         )
+
+    # Diagnostic-calculating functions  - - - - - - - - - - - - - - - - - - - -
+    def _diag_calc_CFL(self): 
+        """ Calculate the maximum CFL number in the model """
+
+        maxSpeed1 = (np.sqrt(self.u1**2.0 + self.v1**2.0)).max()
+        maxSpeed2 = (np.sqrt(self.u2**2.0 + self.v2**2.0)).max()
+
+        CFL1 = maxSpeed1 * self.dt * self.nx/self.Lx
+        CFL2 = maxSpeed2 * self.dt * self.nx/self.Lx
+
+        return np.array((CFL1, CFL2)).max()
+
+
+    def _diag_calc_KE(self): 
+        """ Calculate the total kinetic energy in the two-layer flow """
+
+        KE1 = (self.Lx*self.Ly)/(self.nx*self.ny) \
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi1h)**2.0 ).sum()
+
+        KE2 = (self.Lx*self.Ly)/(self.nx*self.ny) \
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi2h)**2.0 ).sum()
+
+        return KE1 + KE2
+
+
+    def _calc_max_Ro(self): 
+        """ Calculate the maximum Rossby number in the two-layer flow """
+
+        if self.f0 is None:
+            return None
+
+        else:
+            maxRo1 = np.abs(self.q1/self.f0).max()
+            maxRo2 = np.abs(self.q2/self.f0).max()
+            
+            return np.array((maxRo1, maxRo2)).max()

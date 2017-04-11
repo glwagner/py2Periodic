@@ -59,6 +59,7 @@ class model(object):
         np.use_fastnumpy = True
         mkl.set_num_threads(self.nThreads)
 
+
     # Initialization methods  - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _init_model(self):
         """ Run various initialization routines """
@@ -77,6 +78,7 @@ class model(object):
 
         # Initialize time-stepper once linear coefficient is determined
         self._init_time_stepper()
+
 
     def _init_numerical_parameters(self):
         """ Define the grid, initialize core variables, and initialize 
@@ -142,6 +144,7 @@ class model(object):
         self._filter = self._filter[:, :, np.newaxis] \
             * np.ones((1, 1, self.nVars))
 
+
     def _init_fft(self):
         """ Initialize the fast Fourier transform routine. """
 
@@ -162,6 +165,7 @@ class model(object):
                     pyfftw.interfaces.numpy_fft.ifft2(x, threads=self.nThreads, \
                             planner_effort='FFTW_ESTIMATE'))
 
+
     def set_physical_soln(self, soln):
         """ Initialize model with a physical space solution """ 
 
@@ -171,6 +175,7 @@ class model(object):
         self._dealias_soln()
         self.update_state_variables()
 
+
     def set_spectral_soln(self, soln):
         """ Initialize model with a spectral space solution """ 
 
@@ -178,6 +183,7 @@ class model(object):
         self._dealias_soln()
         self.update_state_variables()
             
+
     # Methods for model operation - - - - - - - - - - - - - - - - - - - - - - - 
     def _dealias_RHS(self):
 
@@ -189,6 +195,7 @@ class model(object):
         else:
             self.RHS[self.ny//3:2*self.ny//3, :, :] = 0.0
             self.RHS[:, self.nx//3:2*self.nx//3, :] = 0.0
+
 
     def _dealias_soln(self):
         """ Dealias the Fourier transform of the soln array """
@@ -202,6 +209,7 @@ class model(object):
             self.soln[self.ny//3:2*self.ny//3, :, :] = 0.0
             self.soln[:, self.nx//3:2*self.nx//3, :] = 0.0
         
+
     def _dealias_var(self, var):
         """ Dealias the Fourier transform of a single variable """
 
@@ -214,6 +222,7 @@ class model(object):
         
         return var
 
+
     def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """
 
@@ -223,6 +232,7 @@ class model(object):
             self._step_forward()
             if (substep+1) % dnLog == 0.0:
                 self._print_status()
+
 
     def step_nSteps_and_average(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """
@@ -275,21 +285,59 @@ class model(object):
                 if (substep+1) % dnLog == 0.0:
                     self._print_status()
 
+
     def _print_status(self):
         """ Print model status """
+
         tc = time.time() - self.timer
         print("step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
                 "t = {:.2e} s".format(self.t))
         self.timer = time.time()
 
-    # Miscellaneous - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
     def describe_model(self):
-        print("\nThis is a doubly-periodic spectral model with the following " + \
+
+        print( \
+            "\nThis is a doubly-periodic spectral model with the following " + \
                 "attributes:\n\n" + \
                 "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
                 "   Grid         : {:d} X {:d}\n".format(self.nx, self.ny) + \
                 "   Current time : {:.2e} s\n\n".format(self.t) + \
-                "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads))
+                "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads) \
+        )
+
+
+    # Diagnostics (beta)  - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    def add_diagnostic(self, name, function, description=None):
+        """ Add a new scalar diagnostic, associated function, and English 
+            description to the diagnostics dictionary """
+
+        # TODO: add 'assert-type' warnings?
+
+        # Create diagnostics dictionary with the basic diagnostic 'time'
+        # if it doesn't exist
+        if not hasattr(self, 'diagnostics'):
+            self.diagnostics = dict()
+            self.diagnostics['t'] = {
+                'description': 'time',
+                'value'      : self.t,
+                'function'   : lambda self: self.t,
+            }
+
+        self.diagnostics[name] = {
+            'description': description,
+            'value'      : None,
+            'function'   : function,
+        }
+
+
+    def evaluate_diagnostics(self): 
+        """ Evaluate diagnostics of the physical model """
+
+        for diag in self.diagnostics:
+            self.diagnostics[diag]['value'] = \
+                self.diagnostics[diag]['function'](self)
+
 
     # Time steppers for the doublyPeriodicModel class - - - - - - - - - - - - - 
     ## Forward Euler  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -300,8 +348,10 @@ class model(object):
             described, among other places, in Bewley's Numerical Renaissance.\n
               """)
 
+
     def _init_time_stepper_forwardEuler(self):
         pass
+
 
     def _step_forward_forwardEuler(self, dt=None):
         """ Step the solution forward in time using the forward Euler scheme """
@@ -311,6 +361,7 @@ class model(object):
         self.soln += dt*(self.RHS + self.linearCoeff*self.soln)
         self.t += dt
         self.step += 1
+
 
     ## 4th-order Runge-Kutta (RK4)  - - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_RK4(self):
@@ -323,6 +374,7 @@ class model(object):
             Renaissance.
               """)
 
+
     def _init_time_stepper_RK4(self):
         """ Initialize and allocate vars for RK4 time-stepping """
 
@@ -333,6 +385,7 @@ class model(object):
         self.__RHS1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.__RHS2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.__RHS3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+
 
     def _step_forward_RK4(self, dt=None):
         """ Step the solution forward in time using the RK4 scheme """
@@ -378,6 +431,7 @@ class model(object):
             computed by contour integration in the complex plane, as described \n
             by Kassam and Trefethen (2005).
               """)
+
         
     def _init_time_stepper_ETDRK4(self):
         """ Initialize and allocate vars for ETDRK4 time-stepping """
@@ -422,6 +476,7 @@ class model(object):
         self.__NL2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.__NL3 = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
+
     def _step_forward_ETDRK4(self):
         """ Step the solution forward in time using the ETDRK4 scheme """
 
@@ -450,6 +505,7 @@ class model(object):
         self.t += self.dt
         self.step += 1
 
+
     ## 3rd-order Adams-Bashforth (AB3) - - - - - - - - - - - - - - - - - - - - - 
     def _describe_time_stepper_AB3(self):
         print("""
@@ -459,12 +515,14 @@ class model(object):
             stability region compared to RK4.
               """)
 
+
     def _init_time_stepper_AB3(self):
         """ Initialize and allocate vars for AB3 time-stepping """
 
         # Allocate right hand sides to be stored from previous steps
         self.__RHSm1 = np.zeros(self.specSolnShape, np.dtype('complex128'))
         self.__RHSm2 = np.zeros(self.specSolnShape, np.dtype('complex128'))
+
 
     def _step_forward_AB3(self):
         """ Step the solution forward in time using the AB3 scheme """

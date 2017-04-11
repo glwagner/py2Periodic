@@ -11,11 +11,11 @@ qgParams = {
     'defRadius'  : 1.5e4, 
     'H1'         : 500.0, 
     'H2'         : 2000.0, 
-    'U1'         : 2.5e-2, 
-    'U2'         : 0.0,
+    'U1'         : 5e-2, 
+    'U2'         : 1e-2,
     'bottomDrag' : 1e-7,
     'nx'         : 128,
-    'dt'         : 1e4, 
+    'dt'         : 1e3, 
     'visc'       : 1e9, 
     'viscOrder'  : 4.0, 
     'timeStepper': 'AB3', 
@@ -43,7 +43,7 @@ h = 0.1*qg.H2*np.exp( -( (qg.x-x0)**2.0 + (qg.y-y0)**2.0 )/(2.0*r**2.0) )
 qg.set_topography(h)
 
 # Run a loop
-nt = 1e3
+nt = 1e4
 for ii in np.arange(0, 1e1):
 
     qg.step_nSteps(nSteps=nt, dnLog=nt)

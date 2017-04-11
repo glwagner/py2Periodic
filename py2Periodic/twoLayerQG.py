@@ -60,7 +60,18 @@ class model(doublyPeriodic.model):
         self.set_physical_soln( \
             1e-1*np.random.standard_normal(self.physSolnShape))
         self.update_state_variables()
+
+        # Initialize default diagnostics
+        self.add_diagnostic('CFL', lambda self: self._calc_CFL(),
+            description="Maximum CFL number")
+
+        self.add_diagnostic('KE', lambda self: self._calc_KE(),
+            description="Total kinetic energy")
+
+        self.add_diagnostic('maxRo', lambda self: self._calc_max_Ro(),
+            description="Maximum Rossby number")
         
+
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_physics(self):
         print("""
@@ -69,6 +80,7 @@ class model(doublyPeriodic.model):
             two prognostic variables: the quasi-geostrophic potential \n
             vorticity in each layer.
         """)
+
 
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
@@ -79,6 +91,7 @@ class model(doublyPeriodic.model):
 
         self.linearCoeff[:, :, 1] = -self._jk*self.U2 \
             - self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
+
 
     def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
@@ -126,6 +139,7 @@ class model(doublyPeriodic.model):
         # Topographic PV
         self.qTop = np.zeros(self.physVarShape, np.dtype('float64'))
 
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """
 
@@ -146,6 +160,8 @@ class model(doublyPeriodic.model):
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
         # "Premature optimization is the root of all evil"
+        #   - Donald Knuth
+
         # Add topographic contribution to PV
         self.q2 += self.qTop
 
@@ -161,6 +177,7 @@ class model(doublyPeriodic.model):
                                 + self._bottomDragKsq*self.psi2h
 
         self._dealias_RHS()
+
 
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
@@ -181,6 +198,7 @@ class model(doublyPeriodic.model):
         self.u2 = self.ifft2(-self._jl*self.psi2h)
         self.v2 = self.ifft2(self._jk*self.psi2h)
 
+
     def _get_streamfunctions(self, q1h, q2h):
         """ Calculate the streamfunctions psi1h and psi2h given the input 
             PV fields q1h and q2h """
@@ -188,11 +206,13 @@ class model(doublyPeriodic.model):
         self.psi1h = self._oneOverDetM*( -(self.Ksq + self.F2)*q1h - self.F1*q2h )
         self.psi2h = self._oneOverDetM*( -self.F2*q1h - (self.Ksq + self.F1)*q2h )
     
+
     def set_topography(self, h):
         """ Set the topographic PV given an input bathymetry """
 
         # TODO: Add a warning if f0 is None.
         self.qTop = -self.f0*h / self.H2
+
 
     def set_q1_and_q2(self, q1, q2):
         """ Update the model state by setting q1 and q2 and calculating 
@@ -204,6 +224,7 @@ class model(doublyPeriodic.model):
         self._dealias_soln()
         self.update_state_variables()
 
+
     def set_q1(self, q1):
         """ Update the model state by setting q1 and calculating 
             state variables """
@@ -211,6 +232,7 @@ class model(doublyPeriodic.model):
         self.soln[:, :, 0] = self.fft2(q1)
         self._dealias_soln()
         self.update_state_variables()
+
 
     def set_q2(self, q2):
         """ Update the model state by setting q2 and calculating 
@@ -220,37 +242,30 @@ class model(doublyPeriodic.model):
         self._dealias_soln()
         self.update_state_variables()
 
+
     def _print_status(self):
         """ Print model status """
         tc = time.time() - self.timer
 
-        # Calculate kinetic energy
+        # Update model state and calculate diagnostics
         self.update_state_variables() 
-        KE1 = (self.Lx*self.Ly)/(self.nx*self.ny) \
-            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi1h)**2.0 ).sum()
-        KE2 = (self.Lx*self.Ly)/(self.nx*self.ny) \
-            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi2h)**2.0 ).sum()
-        KE = KE1 + KE2
-
-        # Calculate CFL number
-        maxSpeed1 = (np.sqrt(self.u1**2.0 + self.v1**2.0)).max()
-        maxSpeed2 = (np.sqrt(self.u2**2.0 + self.v2**2.0)).max()
-
-        CFL1 = maxSpeed1 * self.dt * self.nx/self.Lx
-        CFL2 = maxSpeed2 * self.dt * self.nx/self.Lx
-    
+        self.evaluate_diagnostics()
+            
         print( \
-            "step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
-            "t = {:.2e} s, KE = {:.2e}, ".format(self.t, KE) + \
-            "CFL1 = {:.3f}, CFL2 = {:.3f}".format(CFL1, CFL2) \
+            "step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) \
+            "t = {:.2e} s, KE = {:.2e}, "\
+                .format(self.t, self.diagnostics['KE']['value']) \
+            "CFL = {:.3f}".format(self.diagnostics['CFL']['value']) \
         )
 
         self.timer = time.time()
 
+
     def describe_model(self):
         """ Describe the current model state """
 
-        print("\nThis is a doubly-periodic spectral model for \n" + \
+        print( \
+            "\nThis is a doubly-periodic spectral model for \n" + \
                 "{:s} \n".format(self.physics) + \
                 "with the following attributes:\n\n" + \
                 " Domain             : {:.2e} X {:.2e} m\n".format( \
@@ -262,3 +277,41 @@ class model(doublyPeriodic.model):
                 " Layer depth ratio  : {:.2f} \n".format(self.delta) + \
                 " Comp. threads      : {:d} \n".format(self.nThreads) \
         )
+
+
+    # Diagnostic-calculating functions  - - - - - - - - - - - - - - - - - - - -
+    def _calc_CFL(self): 
+        """ Calculate the maximum CFL number in the model """
+
+        maxSpeed1 = (np.sqrt(self.u1**2.0 + self.v1**2.0)).max()
+        maxSpeed2 = (np.sqrt(self.u2**2.0 + self.v2**2.0)).max()
+
+        CFL1 = maxSpeed1 * self.dt * self.nx/self.Lx
+        CFL2 = maxSpeed2 * self.dt * self.nx/self.Lx
+
+        return np.array((CFL1, CFL2)).max()
+
+
+    def _calc_KE(self): 
+        """ Calculate the total kinetic energy in the two-layer flow """
+
+        KE1 = (self.Lx*self.Ly)/(self.nx*self.ny) \
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi1h)**2.0 ).sum()
+
+        KE2 = (self.Lx*self.Ly)/(self.nx*self.ny) \
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psi2h)**2.0 ).sum()
+
+        return KE1 + KE2
+
+
+    def _calc_max_Ro(self): 
+        """ Calculate the maximum Rossby number in the two-layer flow """
+
+        if self.f0 is None:
+            return None
+
+        else:
+            maxRo1 = np.abs(self.q1/self.f0).max()
+            maxRo2 = np.abs(self.q2/self.f0).max()
+            
+            return np.array((maxRo1, maxRo2)).max()

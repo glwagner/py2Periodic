@@ -54,13 +54,13 @@ simPlotter = tracerPlotter.plotter(qg,
     name='Perturbation vorticity and tracers') 
 
 # Run a loop
-nt = 1e3
+nt = 1e1
 for i in xrange(100):
 
     qg.step_nSteps_and_average(nSteps=nt, dnLog=nt)
     qg.update_state_variables()
 
-    fig = simPlotter.make_plot()
+    simPlotter.make_plot()
     plt.pause(0.01)
 
 # Change solution to average solution and recompute everything
@@ -68,7 +68,7 @@ qg.soln = qg.avgSoln.copy()
 qg.update_state_variables()
 
 avgPlotter = tracerPlotter.plotter(qg, name='Averages')
-fig = avgPlotter.make_plot()
+avgPlotter.make_plot()
 plt.pause(0.01)
 
 print("Close the plots to end the program")
