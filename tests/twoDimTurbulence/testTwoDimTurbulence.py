@@ -1,4 +1,4 @@
-import sys; sys.path.append('../py2Periodic/')
+import sys; sys.path.append('../../py2Periodic/')
 import twoDimTurbulence
 import numpy as np; from numpy import pi
 import time
@@ -8,25 +8,23 @@ import matplotlib.pyplot as plt
 turb = twoDimTurbulence.model(
     nx = 128, 
     Lx = 2.0*pi, 
-    dt = 1.0e-1,
+    dt = 1e-1,
     nThreads = 1, 
     timeStepper = 'AB3',
-    visc = 1.0e-4, 
+    visc = 1e-7, 
     viscOrder = 4.0, 
 )
 
 turb.describe_model()
 
-# Set an initial random vorticity field. The model attribute "physSolnShape"
-# is a tuple that gives the shape of the "soln" variable used internally
-# by the model.
+# Set an initial random vorticity field.
 q0 = np.random.standard_normal((turb.ny, turb.nx))
 turb.set_q(q0)
 
 # Step the model forward in time
 turb.step_nSteps(nSteps=1e3, dnLog=1e2)
 
-# Update variables like vorticity, speed, etc
+# Update variables like vorticity, velocity, etc
 turb.update_state_variables()
 
 print("The root-mean-square vorticity is " + \
