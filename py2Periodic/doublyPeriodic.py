@@ -224,112 +224,97 @@ class model(object):
         return var
 
 
-    def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
-        """ Step forward nStep times """
-
-        if not hasattr(self, 'timer'): self.timer = time.time()
-
-        for substep in xrange(int(nSteps)):
-            self._step_forward()
-            if (substep+1) % dnLog == 0.0:
-                self._print_status()
-
-
-# ----------------------------------------------------------------------------- 
-    def step_nSteps_and_snapshot(self, nSteps=1e2, dnLog=float('Inf'), 
-        dnSnap=None, nSnaps=None, filename=None):
-        """ Step forward nStep times and save snapshots of the model state"""
+    def run(self, nSteps=None, stopTime=None, dnLog=float('inf'), 
+        nSaves=None, filename=None, averaging=False):
+        """ Step the model forward. The behavior of this method depends strongly
+            on the arguments passed to it. """
 
         # Initialization
-        # TODO: Add an exception if neither dnSnap nor nSnap are specified
-        if nSnaps is None:   nSnaps = int(nSteps/dnSnap)
-        elif dnSnap is None: dnSnap = int(np.ceil(nSteps/nSnaps))
+        if nSteps is None and stopTime is None:
+            nSteps = 100
+        elif stopTime is None:
+            countingSteps = True
+        else:
+            countingSteps = False
 
-        if filename is None: fileName = self.name
-
-        # Prepare HDF5 file
-        self.snapfile = h5py.File("{}.hdf5".format(filename), 
-            'w', libver='latest')
-        
-        time = self.snapfile.create_dataset("time", (nSnaps, ))
-        snaps = self.snapfile.create_dataset("snapshots", 
-            (self.ny, self.nx, self.nVars, nSnaps))
-
-        snaps.dims[0].label = 'y'
-        snaps.dims[1].label = 'x'
-        snaps.dims[2].label = 'var'
-        snaps.dims[3].label = 't'
-
-        for key, value in self._input.iteritems(): 
-            snapfile.attrs.create(key, value)
-
-        if not hasattr(self, 'timer'): self.timer = time.time()
-
-        snapshot = 0
-        for substep in xrange(int(nSteps)):
-
-            self._step_forward()
-
-            if (substep+1) % dnSnap == 0.0:
-                time[snapshot] = self.t
-                snaps[:, :, :, snapshot] = self.soln
-                snapshot += 1
-
-            if (substep+1) % dnLog == 0.0:
-                self._print_status()
-
-        self.snapfile.close()
-
-    def step_nSteps_and_average(self, nSteps=1e2, dnLog=float('Inf')):
-        """ Step forward nStep times """
-
-        if not hasattr(self, 'timer'): self.timer = time.time()
-
-        # If avgSoln already exists, continue to average
-        if not hasattr(self, 'avgSoln'): 
-            self.avgSoln = np.zeros(self.specSolnShape, 'complex128')
-
-        for substep in xrange(int(nSteps)):
-
-            # Store solution and time-step prior to stepping forward
+        if averaging:
             dt0 = self.dt
             soln0 = self.soln.copy()
 
-            self._step_forward()
+            if not hasattr(self, 'avgSoln'):
+                self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
-            # Accumulate average using the trapezoidal rule
-            self.avgSoln += (soln0+self.soln) / (2.0*dt0)
+        if nSaves is None or nSaves == 0.0:
+            dnSave = float('inf')
+        else:
+            # HDF5 initialization
+            dnSave = int(np.ceil(nSteps/nSaves))
+            iSave = 0
 
-            if (substep+1) % dnLog == 0.0:
-                self._print_status()
+            if filename is None: 
+                filename = self.name
 
+            # Prepare HDF5 file
+            self.snapfile = h5py.File("{}.hdf5".format(filename), 
+                'w', libver='latest')
+            
+            time = self.snapfile.create_dataset("time", (nSaves, ))
+            snaps = self.snapfile.create_dataset("snapshots", 
+                (self.ny, self.nx, self.nVars, nSaves))
 
-    def step_until(self, stopTime=None, dnLog=float('Inf')):
-        """ Step forward nStep times """
+            snaps.dims[0].label = 'y'
+            snaps.dims[1].label = 'x'
+            snaps.dims[2].label = 'var'
+            snaps.dims[3].label = 't'
 
-        if not hasattr(self, 'timer'): self.timer = time.time()
-        if stopTime is None: stopTime = step.t + 10.0*self.dt
-        if stopTime < self.t: 
-            print("\nThe stop time is less than the current time! " \
-                "The model will not step forward.\n")
+            for key, value in self._input.iteritems(): 
+                snapfile.attrs.create(key, value)
+            
+        if not hasattr(self, 'timer'): 
+            self.timer = time.time()
 
         substep = 0
-        while True:
-            if self.t >= stopTime: break
-            elif self.t + self.dt > stopTime:
-                # This hook handles cases where the planned final step will 
-                # overshoot the stopTime. In this case, ten small steps are 
-                # carried out with the forward Euler scheme to finish the run.
-                finalSteps = 10
-                finalDt = (stopTime - self.t) / float(finalSteps)
-                for step in xrange(finalSteps): 
-                    self._step_forward_forwardEuler(dt=finalDt)
-                break
+        running = True
+        while running:
+
+            self._step_forward()
+            substep += 1
+
+            if averaging:
+                # Accumulate average using the trapezoidal rule
+                self.avgSoln += (soln0+self.soln) / (2.0*dt0)
+
+                # Store solution and time-step prior to next step
+                dt0 = self.dt
+                soln0 = self.soln.copy()
+
+            if substep % dnSave == 0.0:
+                time[iSave] = self.t
+                snaps[:, :, :, iSave] = self.soln
+                iSave += 1
+
+            if substep % dnLog == 0.0:
+                self._print_status()
+
+            if countingSteps:            
+                if substep == int(nSteps):
+                    running = False
             else:
-                self._step_forward()
-                substep += 1
-                if (substep+1) % dnLog == 0.0:
-                    self._print_status()
+                if self.t >= stopTime:
+                    running = False
+                elif self.t + self.dt > stopTime:
+                    # This hook handles cases where the planned final step will 
+                    # overshoot the stopTime. In this case, 10 small steps are 
+                    # carried out with the forward Euler scheme to finish the run.
+                    finalSteps = 10
+                    finalDt = (stopTime - self.t) / finalSteps
+                    for step in xrange(finalSteps): 
+                        self._step_forward_forwardEuler(dt=finalDt)
+                
+                    running = False
+
+        if nSaves is not None
+            self.snapfile.close()
 
 
     def _print_status(self):
