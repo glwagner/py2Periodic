@@ -3,6 +3,7 @@ import pyfftw
 import mkl
 import h5py
 import time
+import h5py
 
 # TODO 1. Add an exception error for the violation of physical
 #           conditions, if physical parameters are unset, etc.
@@ -64,9 +65,9 @@ class model(object):
     def _init_model(self):
         """ Run various initialization routines """
 
-        # Copy the model inputs into an independent dictionary prior to running 
-        # initialization routines
-        self._input = self.__dict__.copy()
+        # Store a dictionary with input parameters
+        self._input = { key:value for key, value in self.__dict__.items()
+            if type(value) in (str, float, int, bool) }
 
         # Initialization routines defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()
@@ -233,6 +234,51 @@ class model(object):
             if (substep+1) % dnLog == 0.0:
                 self._print_status()
 
+
+# ----------------------------------------------------------------------------- 
+    def step_nSteps_and_snapshot(self, nSteps=1e2, dnLog=float('Inf'), 
+        dnSnap=None, nSnaps=None, filename=None):
+        """ Step forward nStep times and save snapshots of the model state"""
+
+        # Initialization
+        # TODO: Add an exception if neither dnSnap nor nSnap are specified
+        if nSnaps is None:   nSnaps = int(nSteps/dnSnap)
+        elif dnSnap is None: dnSnap = int(np.ceil(nSteps/nSnaps))
+
+        if filename is None: fileName = self.name
+
+        # Prepare HDF5 file
+        self.snapfile = h5py.File("{}.hdf5".format(filename), 
+            'w', libver='latest')
+        
+        time = self.snapfile.create_dataset("time", (nSnaps, ))
+        snaps = self.snapfile.create_dataset("snapshots", 
+            (self.ny, self.nx, self.nVars, nSnaps))
+
+        snaps.dims[0].label = 'y'
+        snaps.dims[1].label = 'x'
+        snaps.dims[2].label = 'var'
+        snaps.dims[3].label = 't'
+
+        for key, value in self._input.iteritems(): 
+            snapfile.attrs.create(key, value)
+
+        if not hasattr(self, 'timer'): self.timer = time.time()
+
+        snapshot = 0
+        for substep in xrange(int(nSteps)):
+
+            self._step_forward()
+
+            if (substep+1) % dnSnap == 0.0:
+                time[snapshot] = self.t
+                snaps[:, :, :, snapshot] = self.soln
+                snapshot += 1
+
+            if (substep+1) % dnLog == 0.0:
+                self._print_status()
+
+        self.snapfile.close()
 
     def step_nSteps_and_average(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """
