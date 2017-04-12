@@ -224,12 +224,23 @@ class model(object):
         return var
 
 
-    def run(self, nSteps=None, stopTime=None, dnLog=float('inf'), 
-        nSaves=None, filename=None, averaging=False):
+     def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
+        """ Step forward nStep times """
+
+        if not hasattr(self, 'timer'): self.timer = time.time()
+
+        for substep in xrange(int(nSteps)):
+            self._step_forward()
+            if (substep+1) % dnLog == 0.0:
+                self._print_status()
+
+
+    def run(self, nSteps=None, stopTime=None, dnLog=float('inf'), averaging=False,
+        nSaves=None, filename=None, runID=None):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
 
-        # Initialization
+        # Method initialization
         if nSteps is None and stopTime is None:
             nSteps = 100
         elif stopTime is None:
@@ -244,23 +255,30 @@ class model(object):
             if not hasattr(self, 'avgSoln'):
                 self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
+        # HDF5 initialization
         if nSaves is None or nSaves == 0.0:
             dnSave = float('inf')
         else:
-            # HDF5 initialization
             dnSave = int(np.ceil(nSteps/nSaves))
             iSave = 0
 
             if filename is None: 
                 filename = self.name
 
+            # TODO: generate warning if file exists.
             # Prepare HDF5 file
             self.snapfile = h5py.File("{}.hdf5".format(filename), 
-                'w', libver='latest')
-            
-            time = self.snapfile.create_dataset("time", (nSaves, ))
-            snaps = self.snapfile.create_dataset("snapshots", 
-                (self.ny, self.nx, self.nVars, nSaves))
+                'a', libver='latest')
+
+            # TODO: come up with a nice default name for "runGroup"
+            if runID is not None:
+                runGroup = self.snapfile.create_group(runID)
+            else:
+                runGroup = self.snapfile.create_group("run0")
+
+            time = runGroup.create_dataset("time", (nSaves+1, ))
+            snaps = runGroup.snapfile.create_dataset("snapshots", 
+                (self.ny, self.nx, self.nVars, nSaves+1))
 
             snaps.dims[0].label = 'y'
             snaps.dims[1].label = 'x'
@@ -269,6 +287,11 @@ class model(object):
 
             for key, value in self._input.iteritems(): 
                 snapfile.attrs.create(key, value)
+
+            # Save initial state
+            time[iSave] = self.t
+            snaps[:, :, :, iSave] = self.soln
+            iSave += 1
             
         if not hasattr(self, 'timer'): 
             self.timer = time.time()
@@ -296,9 +319,8 @@ class model(object):
             if substep % dnLog == 0.0:
                 self._print_status()
 
-            if countingSteps:            
-                if substep == int(nSteps):
-                    running = False
+            if countingSteps and substep == nSteps:            
+                running = False
             else:
                 if self.t >= stopTime:
                     running = False
