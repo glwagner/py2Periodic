@@ -10,3 +10,6 @@
 
 # The "archive" folder with code to be referenced, but not used
 /archive/
+
+# HDF5 files
+*.hdf5
