@@ -1,8 +1,7 @@
 import numpy as np; from numpy import pi
+import time as timeTools
 import pyfftw
 import mkl
-import h5py
-import time
 import h5py
 
 # TODO 1. Add an exception error for the violation of physical
@@ -128,7 +127,7 @@ class model(object):
 
         # Initialize the spectral filter 
         filterOrder = 4.0
-        (innerK, outerK) = (0.63, 0.65)
+        (innerK, outerK) = (0.65, 0.95)
         decayRate = 15.0*np.log(10.0) / (outerK-innerK)**filterOrder
 
         # Construct the filter
@@ -224,10 +223,10 @@ class model(object):
         return var
 
 
-     def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
+    def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
         """ Step forward nStep times """
 
-        if not hasattr(self, 'timer'): self.timer = time.time()
+        if not hasattr(self, 'timer'): self.timer = timeTools.time()
 
         for substep in xrange(int(nSteps)):
             self._step_forward()
@@ -235,8 +234,8 @@ class model(object):
                 self._print_status()
 
 
-    def run(self, nSteps=None, stopTime=None, dnLog=float('inf'), averaging=False,
-        nSaves=None, filename=None, runname=None):
+    def run(self, nSteps=None, stopTime=None, logInterval=float('Inf'), 
+        averaging=False, nSaves=None, fileName=None, runName=None):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
 
@@ -258,36 +257,37 @@ class model(object):
 
         # HDF5 initialization
         if nSaves is None or nSaves == 0.0:
-            dnSave = float('inf')
+            saveInterval = float('Inf')
         else:
-            dnSave = int(np.ceil(nSteps/nSaves))
+            saveInterval = int(np.ceil(nSteps/nSaves))
 
-            if filename is None: 
-                filename = self.name
+            if fileName is None: 
+                fileName = self.name
 
-            # TODO: generate warning if file exists.
             # Prepare HDF5 file
-            self.snapfile = h5py.File("{}.hdf5".format(filename), 
+            self.snapfile = h5py.File("{}.hdf5".format(fileName), 
                 'a', libver='latest')
 
-            # TODO: come up with a nice default name for "runData"
-            if runname is not None:
-                runData = self.snapfile.create_group(runname)
+            if '/test' in self.snapfile:
+                del self.snapfile['test']
+
+            if runName is not None:
+                runData = self.snapfile.create_group(runName)
             else:
-                runData = self.snapfile.create_group("run0")
+                runData = self.snapfile.create_group('test')
 
-            time = runData.create_dataset("time", (nSaves+1, ))
-            snaps = runData.create_dataset("snapshots", 
-                (self.ny, self.nx, self.nVars, nSaves+1))
+            time = runData.create_dataset('t', (nSaves+1, ), np.dtype('float64'))
+            snaps = runData.create_dataset('soln', 
+                (self.nl, self.nk, self.nVars, nSaves+1), np.dtype('complex128'))
 
-            snaps.dims[0].label = 'y'
-            snaps.dims[1].label = 'x'
+            snaps.dims[0].label = 'l'
+            snaps.dims[1].label = 'k'
             snaps.dims[2].label = 'var'
             snaps.dims[3].label = 't'
             time.dims[0].label = 't'
 
             for key, value in self._input.iteritems(): 
-                snapfile.attrs.create(key, value)
+                self.snapfile.attrs.create(key, value)
 
             # Save initial state
             time[0] = self.t
@@ -295,7 +295,7 @@ class model(object):
             iSave = 1
             
         if not hasattr(self, 'timer'): 
-            self.timer = time.time()
+            self.timer = timeTools.time()
 
         substep = 0
         running = True
@@ -312,17 +312,17 @@ class model(object):
                 dt0 = self.dt
                 soln0 = self.soln.copy()
 
-            if substep % dnSave == 0.0:
+            if substep % saveInterval == 0.0:
                 time[iSave] = self.t
                 snaps[:, :, :, iSave] = self.soln
                 iSave += 1
 
-            if substep % dnLog == 0.0:
+            if substep % logInterval == 0.0:
                 self._print_status()
 
             if countingSteps and substep == nSteps:            
                 running = False
-            else:
+            elif not countingSteps:
                 if self.t >= stopTime:
                     running = False
                 elif self.t + self.dt > stopTime:
@@ -336,17 +336,17 @@ class model(object):
                 
                     running = False
 
-        if nSaves is not None
+        if nSaves is not None:
             self.snapfile.close()
 
 
     def _print_status(self):
         """ Print model status """
 
-        tc = time.time() - self.timer
+        tc = timeTools.time() - self.timer
         print("step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) + \
                 "t = {:.2e} s".format(self.t))
-        self.timer = time.time()
+        self.timer = timeTools.time()
 
 
     def describe_model(self):

@@ -3,7 +3,7 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = "twoDimensionalTurbulenceExample", 
+    def __init__(self, name = "twoDimensionalTurbulenceTest", 
             # Grid parameters
             nx = 128, ny = None, Lx = 2.0*pi, Ly = None, 
             # Solver parameters
