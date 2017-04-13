@@ -236,13 +236,14 @@ class model(object):
 
 
     def run(self, nSteps=None, stopTime=None, dnLog=float('inf'), averaging=False,
-        nSaves=None, filename=None, runID=None):
+        nSaves=None, filename=None, runname=None):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
 
         # Method initialization
         if nSteps is None and stopTime is None:
             nSteps = 100
+            countingSteps = True
         elif stopTime is None:
             countingSteps = True
         else:
@@ -260,7 +261,6 @@ class model(object):
             dnSave = float('inf')
         else:
             dnSave = int(np.ceil(nSteps/nSaves))
-            iSave = 0
 
             if filename is None: 
                 filename = self.name
@@ -270,28 +270,29 @@ class model(object):
             self.snapfile = h5py.File("{}.hdf5".format(filename), 
                 'a', libver='latest')
 
-            # TODO: come up with a nice default name for "runGroup"
-            if runID is not None:
-                runGroup = self.snapfile.create_group(runID)
+            # TODO: come up with a nice default name for "runData"
+            if runname is not None:
+                runData = self.snapfile.create_group(runname)
             else:
-                runGroup = self.snapfile.create_group("run0")
+                runData = self.snapfile.create_group("run0")
 
-            time = runGroup.create_dataset("time", (nSaves+1, ))
-            snaps = runGroup.snapfile.create_dataset("snapshots", 
+            time = runData.create_dataset("time", (nSaves+1, ))
+            snaps = runData.create_dataset("snapshots", 
                 (self.ny, self.nx, self.nVars, nSaves+1))
 
             snaps.dims[0].label = 'y'
             snaps.dims[1].label = 'x'
             snaps.dims[2].label = 'var'
             snaps.dims[3].label = 't'
+            time.dims[0].label = 't'
 
             for key, value in self._input.iteritems(): 
                 snapfile.attrs.create(key, value)
 
             # Save initial state
-            time[iSave] = self.t
-            snaps[:, :, :, iSave] = self.soln
-            iSave += 1
+            time[0] = self.t
+            snaps[:, :, :, 0] = self.soln
+            iSave = 1
             
         if not hasattr(self, 'timer'): 
             self.timer = time.time()
