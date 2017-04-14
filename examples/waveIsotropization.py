@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 # Parameters:
 # * Physical
+Lx = 1e6
 f0 = 1e-4
 alpha = 1
 sigma = f0*np.sqrt(1+alpha)
@@ -14,10 +15,9 @@ kappa = 32.0*pi / (Lx*np.sqrt(alpha))
 # * Numerical
 dt = 0.05 * 2.0*pi/f0
 nx = 256
-Lx = 1e6
 # * Frictional
 (turbVisc, turbViscOrder) = (3e8, 4.0)
-(waveVisc, waveViscOrder) = (1e24, 8,0)
+(waveVisc, waveViscOrder) = (1e24, 8.0)
 
 # Initialize models
 turb = twoDimTurbulence.model(nx=nx, Lx=Lx, dt=dt, visc=turbVisc, 
@@ -46,10 +46,11 @@ nSteps = int(np.ceil(stopTime / dt))
 nPlots = 10
 nSubsteps = int(np.ceil(nSteps/nPlots))
 
-print("Iterating {:d} times and making {:d} plots:".format(nSteps, nPlots))
+print("Iterating {:d} times and making {:d} "
+        "plots:".format(nSteps, nPlots))
 for i in xrange(nPlots):
 
-    turb.step_nSteps(nSteps=nSubsteps, dnLog=nSubsteps)
+    turb.run(nSteps=nSubsteps, nLogs=10)
     turb.update_state_variables()
 
     # Plot the result
@@ -57,7 +58,11 @@ for i in xrange(nPlots):
     plt.imshow(turb.q)
     plt.pause(0.01)
 
-print("Finished the preliminary turbulence integration! Now let's put a wave field in it...")
+print("The root-mean-square vorticity is " + \
+        "{:0.3f}.\n".format(np.sqrt((turb.q**2.0).mean())))
+
+print("Finished the preliminary turbulence integration! " \
+        "Now let's put a wave field in it...")
 
 # Give final turbulence field to wave model, and run
 hwe.set_q(turb.q)
@@ -70,7 +75,7 @@ nSubsteps = int(np.ceil(nSteps/nPlots))
 print("Iterating {:d} times and making {:d} plots:".format(nSteps, nPlots))
 for i in xrange(nPlots):
     
-    hwe.step_nSteps(nSteps=nSubsteps, dnLog=nSubsteps)
+    hwe.run(nSteps=nSubsteps, nLogs=2)
     hwe.update_state_variables()
     
     plt.figure('Waves and flow', figsize=(12, 8)); plt.clf()
