@@ -233,20 +233,30 @@ class model(object):
             if (substep+1) % dnLog == 0.0:
                 self._print_status()
 
+    def visualize_model_state(self):
+        """ Dummy routine meant to be overridden by a physical-problem subclass
+            routine that visualizes the state of a model by generating a plot to
+            either appears on-screen or is saved to disk """
+        pass
 
-    def run(self, nSteps=None, stopTime=None, logInterval=float('Inf'), 
-        averaging=False, nSaves=None, fileName=None, runName=None):
+
+    def run(self, nSteps=100, stopTime=None, nLogs=None, logInterval=float('Inf'), 
+        averaging=False,                            # Averaging params
+        nSaves=None, fileName=None, runName=None,   # Save/checkpointing params
+        nPlots=None, plotInterval=float('Inf'),     # Plotting/visualization params 
+        ):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
 
         # Method initialization
-        if nSteps is None and stopTime is None:
-            nSteps = 100
-            countingSteps = True
-        elif stopTime is None:
-            countingSteps = True
-        else:
+        if stopTime is not None:
             countingSteps = False
+        else:
+            countingSteps = True
+
+        # Logging
+        if nLogs is not None:
+            logInterval = int(nSteps/nLogs)
 
         if averaging:
             dt0 = self.dt
@@ -259,7 +269,7 @@ class model(object):
         if nSaves is None or nSaves == 0.0:
             saveInterval = float('Inf')
         else:
-            saveInterval = int(np.ceil(nSteps/nSaves))
+            saveInterval = int(min(1, np.ceil(nSteps/nSaves)))
 
             if fileName is None: 
                 fileName = self.name
@@ -268,13 +278,16 @@ class model(object):
             self.snapfile = h5py.File("{}.hdf5".format(fileName), 
                 'a', libver='latest')
 
-            if '/test' in self.snapfile:
-                del self.snapfile['test']
-
             if runName is not None:
                 runData = self.snapfile.create_group(runName)
             else:
-                runData = self.snapfile.create_group('test')
+                anonym = 'test'
+                nAnonym = 0
+                while '/{}_{:02d}'.format(anonym, nAnonym) in self.snapfile:
+                    # TODO: Generate warning if nAnonym > 99
+                    nAnonym += 1
+                runData = self.snapfile.create_group( \
+                    '{}_{:02d}'.format(anonym, nAnonym))
 
             time = runData.create_dataset('t', (nSaves+1, ), np.dtype('float64'))
             snaps = runData.create_dataset('soln', 
@@ -292,7 +305,7 @@ class model(object):
             # Save initial state
             time[0] = self.t
             snaps[:, :, :, 0] = self.soln
-            iSave = 1
+            iSave = 0
             
         if not hasattr(self, 'timer'): 
             self.timer = timeTools.time()
@@ -313,9 +326,9 @@ class model(object):
                 soln0 = self.soln.copy()
 
             if substep % saveInterval == 0.0:
+                iSave += 1
                 time[iSave] = self.t
                 snaps[:, :, :, iSave] = self.soln
-                iSave += 1
 
             if substep % logInterval == 0.0:
                 self._print_status()
@@ -336,7 +349,14 @@ class model(object):
                 
                     running = False
 
+        # Run is complete. Finishing up by saving final state if 
+        # not already saved, and closing file.
         if nSaves is not None:
+            if iSave < nSaves+1:
+                iSave += 1
+                time[iSave] = self.t
+                snaps[:, :, :, iSave] = self.soln
+
             self.snapfile.close()
 
 
