@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np; from numpy import pi
 import time as timeTools
 import pyfftw
@@ -223,14 +224,14 @@ class model(object):
         return var
 
 
-    def step_nSteps(self, nSteps=1e2, dnLog=float('Inf')):
+    def step_nSteps(self, nSteps=1e2, dnLog=float('inf')):
         """ Step forward nStep times """
 
         if not hasattr(self, 'timer'): self.timer = timeTools.time()
 
-        for substep in xrange(int(nSteps)):
+        for runStep in xrange(int(nSteps)):
             self._step_forward()
-            if (substep+1) % dnLog == 0.0:
+            if (runStep+1) % dnLog == 0.0:
                 self._print_status()
 
     def visualize_model_state(self):
@@ -240,126 +241,78 @@ class model(object):
         pass
 
 
-    def run(self, nSteps=100, stopTime=None, nLogs=None, logInterval=float('Inf'),
-        averaging=False,
-        saveOutput=False, fileName=None, runName=None, nSnapshots=0, saveSpecs=None,
-        nPlots=None, plotInterval=float('Inf'),
+    def run(self, nSteps=100, stopTime=None, outputFileName=None, runName=None,
+        nLogs=0, logInterval=float('inf'),
+        nPlots=0, plotInterval=float('inf'),
+        nSnaps=0, snapInterval=float('inf'), itemsToSave=None, overwrite=False,
+        calcAvgSoln=False,
         ):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
 
         # Method initialization
-        if stopTime is not None:
-            countingSteps = False
-        else:
-            countingSteps = True
+        if stopTime is not None: countingSteps = False
+        else:                    countingSteps = True
+            
+        # Give "nTask" arguments priority over "taskInterval" specification
+        if nLogs  > 0: logInterval  = int(nSteps/nLogs)
+        if nPlots > 0: plotInterval = int(nSteps/nPlots)
+        if nSnaps > 0: snapInterval = int(max(np.ceil(nSteps/nSnaps), 1))
+            
+        # HDF5 save routine initialization
+        if snapInterval < float('inf') or itemsToSave is not None:
+            outputFile, runOutput = self._init_hdf5_file(outputFileName, 
+                runName, overwrite)
 
-        # Logging
-        if nLogs is not None:
-            logInterval = int(nSteps/nLogs)
-
-        # Averaging
-        if averaging:
-            dt0 = self.dt
-            soln0 = self.soln.copy()
-
-            if not hasattr(self, 'avgSoln'):
-                self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
-
-        # Plotting
-        if nPlots is not None:
-            plotInterval = int(nSteps/nPlots)
-
-        # HDF5 initialization
-        if not saveOutput:
-            saveInterval = float('Inf')
-        else:
-            saveInterval = int(min(1, np.ceil(nSteps/nSaves)))
-
-            if fileName is None: 
-                fileName = self.name
-
-            # Prepare HDF5 file
-            self.snapfile = h5py.File("{}.hdf5".format(fileName), 
-                'a', libver='latest')
-
-            if runName is not None:
-                runOutput = self.snapfile.create_group(runName)
-            else:
-                defaultName = 'test'
-                nDefault = 0
-                while '/{}_{:02d}'.format(defaultName, nDefault) in self.snapfile:
-                    # TODO: Generate warning if nDefault > 99
-                    nDefault += 1
-                runOutput = self.snapfile.create_group( \
-                    '{}_{:02d}'.format(defaultName, nDefault))
-
-            # Snapshots
-            if nSnapshots > 0:
-                snapshots = runOutput.create_group('snapshots')
-
-                snapTime = snapshots.create_dataset('t', (nSaves+1, ), np.dtype('float64'))
-                snapData = snapshots.create_dataset('soln', 
-                    (self.nl, self.nk, self.nVars, nSaves+1), np.dtype('complex128'))
-
-                snapData.dims[0].label = 'l'
-                snapData.dims[1].label = 'k'
-                snapData.dims[2].label = 'var'
-                snapData.dims[3].label = 't'
-
-                snapTime.dims[0].label = 't'
-
-                for key, value in self._input.iteritems(): 
-                    self.runOutput.attrs.create(key, value)
+            if snapInterval < float('inf'):
+                nSnaps = int(nSteps / snapInterval)
+                snapTime, snapData = self._init_snapshot_datasets(runOutput, nSnaps)
 
                 # Save initial state
                 snapTime[0] = self.t
                 snapData[:, :, :, 0] = self.soln
-                iSave = 0
-
-            # Save specified vars at specified times.
-            if saveSpecs is not None:
-                nSpec = len(saveSpecs)
-                iSpec = 0
-                specs = list()
-                for key, value in saveSpecs.iteritems():
-                    specs[iSpec] = runOutput.create_group('{}_data'.format(key))
-                    #specData[iSpec] = specs[iSpec].create_dataset(key, 
-                    specTime[iSpec] = specs[iSpec].create_dataset('t')
-                    iSpec += 1
-                    
-                    
+                iSnap = 0
             
-        if not hasattr(self, 'timer'): 
-            self.timer = timeTools.time()
+            if itemsToSave is not None:
+                (itemIsGood, itemSaveNums, itemGroups, itemDatasets, 
+                    itemTimeData) = self._init_itemized_saving(self, itemsToSave)
 
-        substep = 0
-        running = True
+        # Averaging
+        if calcAvgSoln: 
+            (dt0, soln0) = (self.dt, self.soln.copy())
+            self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
+            self.avgTime = 0.0
+
+        # Run
+        (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
 
             self._step_forward()
-            substep += 1
+            runStep += 1
 
-            if averaging:
-                # Accumulate average using the trapezoidal rule
-                self.avgSoln += (soln0+self.soln) / (2.0*dt0)
+            if runStep % logInterval  == 0.0: self._print_status()
+            if runStep % plotInterval == 0.0: self.visualize_model_state()
+            if runStep % snapInterval == 0.0:
+                iSnap += 1
+                (snapTime[iSnap], snapData[..., iSnap]) = (self.t, self.soln)
 
-                # Store solution and time-step prior to next step
-                dt0 = self.dt
-                soln0 = self.soln.copy()
+            if itemsToSave is not None:
+                for var, saveTimes in itemsToSave.iteritems():
+                    if itemIsGood[var] and (
+                        self.t >= saveTimes[itemSaveNums[var]] or
+                        saveTimes[itemSaveNums[var]]-self.t <= self.dt/2.0 
+                    ):
+                        itemDatasets[var][..., itemSaveNums[var]] = getattr(self, var)
+                        itemTimeData[var][itemSaveNums[var]] = self.t 
+                        itemSaveNums[var] += 1
 
-            if substep % saveInterval == 0.0:
-                iSave += 1
-                snapTime[iSave] = self.t
-                snapData[:, :, :, iSave] = self.soln
+            if calcAvgSoln:
+                self.avgSoln += self.avgTime / (self.avgTime+dt0) \
+                    * (soln0+self.soln) / (2.0*dt0)
+                self.avgTime += dt0
+                (dt0, soln0) = (self.dt, self.soln.copy())
 
-            if substep % logInterval == 0.0:
-                self._print_status()
-
-            if substep % plotInterval == 0.0:
-                self.visualize_model_state()
-
-            if countingSteps and substep == nSteps:            
+            if countingSteps and runStep >= nSteps:            
                 running = False
             elif not countingSteps:
                 if self.t >= stopTime:
@@ -377,13 +330,119 @@ class model(object):
 
         # Run is complete. Finishing up by saving final state if 
         # not already saved, and closing file.
-        if saveOutput:
-            if iSave < nSaves+1:
-                iSave += 1
-                snapTime[iSave] = self.t
-                snapData[:, :, :, iSave] = self.soln
+        if snapInterval < float('inf') or itemsToSave is not None:
+            if nSnaps > 0 and iSnap < nSnaps:
+                iSnap += 1
+                snapTime[iSnap] = self.t
+                snapData[..., iSnap] = self.soln
 
-            self.snapfile.close()
+            outputFile.close()
+
+
+    def _init_hdf5_file(self, outputFileName, runName, overwrite):
+        """ Open and prepare the HDF5 file for saving run output """
+
+        if outputFileName is None: outputFileName = self.name
+
+        outputFile = h5py.File("{}.hdf5".format(outputFileName), 
+            'a', libver='latest')
+
+        # Generate a unique runName if one is not provided.
+        # TODO: Spit warning if nDefault > 99
+        if runName is None:
+            defaultName = 'test'
+            nDefault = 0
+            while '/{}_{:02d}'.format(defaultName, nDefault) in outputFile:
+                nDefault += 1
+            runName = '{}_{:02d}'.format(defaultName, nDefault)
+
+        # Create new group for the run and store inputs as attributes.
+        # Delete output file is 'overwrite' is selected.
+        if overwrite and runName in outputFile:
+            del outputFile[runName]
+
+        runOutput = outputFile.create_group(runName)
+
+        for param, value in self._input.iteritems(): 
+            runOutput.attrs.create(param, value)
+
+        self.outputFileName = outputFileName            
+        self.runName = runName
+
+        return outputFile, runOutput
+
+
+    def delete_run_data(self, outputFileName=None, runName=None):
+        """ Delete all data from a model run """
+
+        if outputFileName is None: outputFileName = self.outputFileName
+        if runName is None: runName = self.runName
+
+        dataFile = h5py.File("{}.hdf5".format(outputFileName), 
+            'a', libver='latest')
+
+        del dataFile[runName]
+
+
+    def _init_snapshot_datasets(self, runOutput, nSnaps):
+        """ Initialize a data group 'snapshots' with time and snapshot 
+            datasets for saving of model snapshots during run """
+
+        snapshots = runOutput.create_group('snapshots')
+        snapTime = snapshots.create_dataset('t', 
+            (nSnaps+1, ), np.dtype('float64'))
+        snapData = snapshots.create_dataset('soln', 
+            (self.nl, self.nk, self.nVars, nSnaps+1), np.dtype('complex128'))
+
+        snapData.dims[0].label = 'l'
+        snapData.dims[1].label = 'k'
+        snapData.dims[2].label = 'var'
+        snapData.dims[3].label = 't'
+
+        snapTime.dims[0].label = 't'
+
+        return snapTime, snapData
+
+
+    def _init_itemized_saving(self, itemsToSave):
+        """ Initialize dictionaries with parameters and hdf5 objects needed
+            for the itemized saving routine """
+
+        # TODO: spit warning if the specified time points are not in order.
+        itemIsGood = dict()
+        itemSaveNums = dict()
+        itemGroups = dict()
+        itemDatasets = dict()
+        itemTimeData = dict()
+
+        for var, saveTimes in itemsToSave.iteritems():
+            if saveTimes[-1] < self.t: 
+                itemIsGood[var] = False
+            else:
+                itemDataShape = [ dim for dim in getattr(self, var).shape ]
+                itemDataShape.append(len(saveTimes))
+
+                itemGroups[var] = runOutput.create_group('{}_data'.format(var))
+                itemDatasets[var] = itemGroups[var].create_dataset(
+                    var, tuple(itemDataShape) )
+                itemTimeData[var] = itemGroups[var].create_dataset(
+                    't', len(saveTimes) )
+
+                # Initialize data and itemSaveNums for each data set.
+                (itemSaveNums[var], readyToSave) = (0, False)
+                while not readyToSave:
+                    if saveTimes(itemSaveNums[var]) > self.t + self.dt:
+                        readyToSave = True
+                    elif np.abs(self.t-saveTimes[itemSaveNums[var]]) <= self.dt/2.0:
+                        itemDatasets[var][..., itemSaveNums[var]] = getattr(self, var)
+                        itemTimeData[var][itemSaveNums[var]] = self.t 
+
+                        readyToSave = True 
+                        itemSaveNums[var] += 1
+                    else:
+                        itemSaveNums[var] += 1
+
+        return (itemIsGood, itemSaveNums, itemGroups, itemDatasets, itemTimeData)
 
 
     def _print_status(self):
@@ -413,7 +472,6 @@ class model(object):
             description to the diagnostics dictionary """
 
         # TODO: add 'assert-type' warnings?
-
         # Create diagnostics dictionary with the basic diagnostic 'time'
         # if it doesn't exist
         if not hasattr(self, 'diagnostics'):
