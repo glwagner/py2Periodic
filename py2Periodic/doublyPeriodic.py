@@ -240,10 +240,10 @@ class model(object):
         pass
 
 
-    def run(self, nSteps=100, stopTime=None, nLogs=None, logInterval=float('Inf'), 
-        averaging=False,                            # Averaging params
-        nSaves=None, fileName=None, runName=None,   # Save/checkpointing params
-        nPlots=None, plotInterval=float('Inf'),     # Plotting/visualization params 
+    def run(self, nSteps=100, stopTime=None, nLogs=None, logInterval=float('Inf'),
+        averaging=False,
+        saveOutput=False, fileName=None, runName=None, nSnapshots=0, saveSpecs=None,
+        nPlots=None, plotInterval=float('Inf'),
         ):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
@@ -258,6 +258,7 @@ class model(object):
         if nLogs is not None:
             logInterval = int(nSteps/nLogs)
 
+        # Averaging
         if averaging:
             dt0 = self.dt
             soln0 = self.soln.copy()
@@ -265,8 +266,12 @@ class model(object):
             if not hasattr(self, 'avgSoln'):
                 self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
 
+        # Plotting
+        if nPlots is not None:
+            plotInterval = int(nSteps/nPlots)
+
         # HDF5 initialization
-        if nSaves is None or nSaves == 0.0:
+        if not saveOutput:
             saveInterval = float('Inf')
         else:
             saveInterval = int(min(1, np.ceil(nSteps/nSaves)))
@@ -279,33 +284,51 @@ class model(object):
                 'a', libver='latest')
 
             if runName is not None:
-                runData = self.snapfile.create_group(runName)
+                runOutput = self.snapfile.create_group(runName)
             else:
-                anonym = 'test'
-                nAnonym = 0
-                while '/{}_{:02d}'.format(anonym, nAnonym) in self.snapfile:
-                    # TODO: Generate warning if nAnonym > 99
-                    nAnonym += 1
-                runData = self.snapfile.create_group( \
-                    '{}_{:02d}'.format(anonym, nAnonym))
+                defaultName = 'test'
+                nDefault = 0
+                while '/{}_{:02d}'.format(defaultName, nDefault) in self.snapfile:
+                    # TODO: Generate warning if nDefault > 99
+                    nDefault += 1
+                runOutput = self.snapfile.create_group( \
+                    '{}_{:02d}'.format(defaultName, nDefault))
 
-            time = runData.create_dataset('t', (nSaves+1, ), np.dtype('float64'))
-            snaps = runData.create_dataset('soln', 
-                (self.nl, self.nk, self.nVars, nSaves+1), np.dtype('complex128'))
+            # Snapshots
+            if nSnapshots > 0:
+                snapshots = runOutput.create_group('snapshots')
 
-            snaps.dims[0].label = 'l'
-            snaps.dims[1].label = 'k'
-            snaps.dims[2].label = 'var'
-            snaps.dims[3].label = 't'
-            time.dims[0].label = 't'
+                snapTime = snapshots.create_dataset('t', (nSaves+1, ), np.dtype('float64'))
+                snapData = snapshots.create_dataset('soln', 
+                    (self.nl, self.nk, self.nVars, nSaves+1), np.dtype('complex128'))
 
-            for key, value in self._input.iteritems(): 
-                self.snapfile.attrs.create(key, value)
+                snapData.dims[0].label = 'l'
+                snapData.dims[1].label = 'k'
+                snapData.dims[2].label = 'var'
+                snapData.dims[3].label = 't'
 
-            # Save initial state
-            time[0] = self.t
-            snaps[:, :, :, 0] = self.soln
-            iSave = 0
+                snapTime.dims[0].label = 't'
+
+                for key, value in self._input.iteritems(): 
+                    self.runOutput.attrs.create(key, value)
+
+                # Save initial state
+                snapTime[0] = self.t
+                snapData[:, :, :, 0] = self.soln
+                iSave = 0
+
+            # Save specified vars at specified times.
+            if saveSpecs is not None:
+                nSpec = len(saveSpecs)
+                iSpec = 0
+                specs = list()
+                for key, value in saveSpecs.iteritems():
+                    specs[iSpec] = runOutput.create_group('{}_data'.format(key))
+                    #specData[iSpec] = specs[iSpec].create_dataset(key, 
+                    specTime[iSpec] = specs[iSpec].create_dataset('t')
+                    iSpec += 1
+                    
+                    
             
         if not hasattr(self, 'timer'): 
             self.timer = timeTools.time()
@@ -327,11 +350,14 @@ class model(object):
 
             if substep % saveInterval == 0.0:
                 iSave += 1
-                time[iSave] = self.t
-                snaps[:, :, :, iSave] = self.soln
+                snapTime[iSave] = self.t
+                snapData[:, :, :, iSave] = self.soln
 
             if substep % logInterval == 0.0:
                 self._print_status()
+
+            if substep % plotInterval == 0.0:
+                self.visualize_model_state()
 
             if countingSteps and substep == nSteps:            
                 running = False
@@ -351,11 +377,11 @@ class model(object):
 
         # Run is complete. Finishing up by saving final state if 
         # not already saved, and closing file.
-        if nSaves is not None:
+        if saveOutput:
             if iSave < nSaves+1:
                 iSave += 1
-                time[iSave] = self.t
-                snaps[:, :, :, iSave] = self.soln
+                snapTime[iSave] = self.t
+                snapData[:, :, :, iSave] = self.soln
 
             self.snapfile.close()
 
