@@ -250,16 +250,16 @@ class model(object):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
 
-        # Method initialization
+        # Initialization
         if stopTime is not None: countingSteps = False
         else:                    countingSteps = True
             
-        # Give "nTask" arguments priority over "taskInterval" specification
+        ## Give "nTask" arguments priority over "taskInterval" specification
         if nLogs  > 0: logInterval  = int(nSteps/nLogs)
         if nPlots > 0: plotInterval = int(nSteps/nPlots)
         if nSnaps > 0: snapInterval = int(max(np.ceil(nSteps/nSnaps), 1))
             
-        # HDF5 save routine initialization
+        ## HDF5 save routine initialization
         if snapInterval < float('inf') or itemsToSave is not None:
             outputFile, runOutput = self._init_hdf5_file(outputFileName, 
                 runName, overwrite)
@@ -274,10 +274,10 @@ class model(object):
                 iSnap = 0
             
             if itemsToSave is not None:
-                (itemIsGood, itemSaveNums, itemGroups, itemDatasets, 
-                    itemTimeData) = self._init_itemized_saving(self, itemsToSave)
+                (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, 
+                    itemTimeData) = self._init_itemized_saving(runOutput, itemsToSave)
 
-        # Averaging
+        ## Averaging
         if calcAvgSoln: 
             (dt0, soln0) = (self.dt, self.soln.copy())
             self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
@@ -290,6 +290,7 @@ class model(object):
             self._step_forward()
             runStep += 1
 
+            # Hooks for logging, plotting, saving, and averaging
             if runStep % logInterval  == 0.0: self._print_status()
             if runStep % plotInterval == 0.0: self.visualize_model_state()
             if runStep % snapInterval == 0.0:
@@ -298,13 +299,17 @@ class model(object):
 
             if itemsToSave is not None:
                 for var, saveTimes in itemsToSave.iteritems():
-                    if itemIsGood[var] and (
+                    if itemBeingSaved[var] and (
                         self.t >= saveTimes[itemSaveNums[var]] or
                         saveTimes[itemSaveNums[var]]-self.t <= self.dt/2.0 
                     ):
                         itemDatasets[var][..., itemSaveNums[var]] = getattr(self, var)
                         itemTimeData[var][itemSaveNums[var]] = self.t 
-                        itemSaveNums[var] += 1
+
+                        if itemSaveNums[var]+1 == len(saveTimes):
+                            itemBeingSaved[var] = False
+                        else:
+                            itemSaveNums[var] += 1
 
             if calcAvgSoln:
                 self.avgSoln += self.avgTime / (self.avgTime+dt0) \
@@ -312,6 +317,7 @@ class model(object):
                 self.avgTime += dt0
                 (dt0, soln0) = (self.dt, self.soln.copy())
 
+            # Assess run completion
             if countingSteps and runStep >= nSteps:            
                 running = False
             elif not countingSteps:
@@ -404,12 +410,12 @@ class model(object):
         return snapTime, snapData
 
 
-    def _init_itemized_saving(self, itemsToSave):
+    def _init_itemized_saving(self, runOutput, itemsToSave):
         """ Initialize dictionaries with parameters and hdf5 objects needed
             for the itemized saving routine """
 
         # TODO: spit warning if the specified time points are not in order.
-        itemIsGood = dict()
+        itemBeingSaved = dict()
         itemSaveNums = dict()
         itemGroups = dict()
         itemDatasets = dict()
@@ -417,8 +423,9 @@ class model(object):
 
         for var, saveTimes in itemsToSave.iteritems():
             if saveTimes[-1] < self.t: 
-                itemIsGood[var] = False
+                itemBeingSaved[var] = False
             else:
+                itemBeingSaved[var] = True
                 itemDataShape = [ dim for dim in getattr(self, var).shape ]
                 itemDataShape.append(len(saveTimes))
 
@@ -426,12 +433,12 @@ class model(object):
                 itemDatasets[var] = itemGroups[var].create_dataset(
                     var, tuple(itemDataShape) )
                 itemTimeData[var] = itemGroups[var].create_dataset(
-                    't', len(saveTimes) )
+                    't', (len(saveTimes),) )
 
                 # Initialize data and itemSaveNums for each data set.
                 (itemSaveNums[var], readyToSave) = (0, False)
                 while not readyToSave:
-                    if saveTimes(itemSaveNums[var]) > self.t + self.dt:
+                    if saveTimes[itemSaveNums[var]] > self.t + self.dt:
                         readyToSave = True
                     elif np.abs(self.t-saveTimes[itemSaveNums[var]]) <= self.dt/2.0:
                         itemDatasets[var][..., itemSaveNums[var]] = getattr(self, var)
@@ -442,7 +449,7 @@ class model(object):
                     else:
                         itemSaveNums[var] += 1
 
-        return (itemIsGood, itemSaveNums, itemGroups, itemDatasets, itemTimeData)
+        return (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, itemTimeData)
 
 
     def _print_status(self):
