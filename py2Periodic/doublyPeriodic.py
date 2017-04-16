@@ -35,9 +35,10 @@ class model(object):
         self.timeStepper = timeStepper
         self.useFilter = useFilter
 
-        # TODO: permit an input 'maximum'; also, if nThreads is
-        # greater than number on the machine, set to number on the machine.
-        self.nThreads = nThreads
+        if nThreads is 'maximum' or nThreads > mkl.get_max_threads(): 
+            self.nThreads = mkl.get_max_threads()
+        else 
+            self.nThreads = nThreads
 
         # Set the default time-stepping method attributes for the model
         self._describe_time_stepper = getattr(self, 
