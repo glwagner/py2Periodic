@@ -5,15 +5,6 @@ import pyfftw
 import mkl
 import h5py
 
-# TODO 1. Add an exception error for the violation of physical
-#           conditions, if physical parameters are unset, etc.
-# TODO 2. Make more of the defaults 'None' if values for them can
-#           be determined diagnostically, rather than prescribed.
-# TODO 3. For example, set dt=None for default, and specify an adaptive
-#           time-stepper.
-# TODO 4. Allow dt to be specified at run time, and generate a warning if
-#           an implicit time-stepper is specified.
-
 class model(object):
     def __init__(self, physics = None, nVars = 1, realVars = False,
             # Grid resolution and extent
@@ -223,9 +214,10 @@ class model(object):
         
         return var
 
-
+    # User inteaction - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def step_nSteps(self, nSteps=1e2, dnLog=float('inf')):
-        """ Step forward nStep times """
+        """ Simply step forward nStep times. In some respect
+            this is a legacy function """
 
         if not hasattr(self, 'timer'): self.timer = timeTools.time()
 
@@ -233,12 +225,6 @@ class model(object):
             self._step_forward()
             if (runStep+1) % dnLog == 0.0:
                 self._print_status()
-
-    def visualize_model_state(self):
-        """ Dummy routine meant to be overridden by a physical-problem subclass
-            routine that visualizes the state of a model by generating a plot to
-            either appears on-screen or is saved to disk """
-        pass
 
 
     def run(self, nSteps=100, stopTime=None, outputFileName=None, runName=None,
@@ -345,6 +331,7 @@ class model(object):
             outputFile.close()
 
 
+    # Helper functions  - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _init_hdf5_file(self, outputFileName, runName, overwrite):
         """ Open and prepare the HDF5 file for saving run output """
 
@@ -452,6 +439,13 @@ class model(object):
         return (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, itemTimeData)
 
 
+    def visualize_model_state(self):
+        """ Dummy routine meant to be overridden by a physical-problem subclass
+            routine that visualizes the state of a model by generating a plot to
+            either appears on-screen or is saved to disk """
+        pass
+
+
     def _print_status(self):
         """ Print model status """
 
@@ -473,12 +467,11 @@ class model(object):
         )
 
 
-    # Diagnostics (beta)  - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    # Diagnostics - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def add_diagnostic(self, name, function, description=None):
         """ Add a new scalar diagnostic, associated function, and English 
             description to the diagnostics dictionary """
 
-        # TODO: add 'assert-type' warnings?
         # Create diagnostics dictionary with the basic diagnostic 'time'
         # if it doesn't exist
         if not hasattr(self, 'diagnostics'):
