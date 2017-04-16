@@ -1,6 +1,7 @@
 import doublyPeriodic
 import numpy as np; from numpy import pi 
 import time
+import matplotlib.pyplot as plt
 
 class model(doublyPeriodic.model):
     def __init__(self, name = "twoDimensionalTurbulenceTest", 
@@ -41,6 +42,13 @@ class model(doublyPeriodic.model):
             0.1*np.random.standard_normal(self.physSolnShape))
 
         self.update_state_variables()
+
+        # Initialize default diagnostics
+        self.add_diagnostic('CFL', lambda self: self._calc_CFL(),
+            description="Maximum CFL number")
+
+        self.add_diagnostic('KE', lambda self: self._calc_KE(),
+            description="Total kinetic energy")
         
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_physics(self):
@@ -51,6 +59,7 @@ class model(doublyPeriodic.model):
             variable: vorticity in Fourier space.
         """)
 
+
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
             side of the equation """
@@ -58,13 +67,14 @@ class model(doublyPeriodic.model):
         self.linearCoeff[:, :, 0] = \
             -self.visc*(self.k**2.0 + self.l**2.0)**(self.viscOrder/2.0)
        
+
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """
 
         qh = soln[:, :, 0]
 
         # Transform of streamfunction and physical vorticity and velocity
-        self.psih = - qh / self.__divideSafeKay2 
+        self.psih = - qh * self.__oneOverKay2
         self.q = self.ifft2(qh)
         self.u = -self.ifft2(self.__jl*self.psih)
         self.v =  self.ifft2(self.__jk*self.psih)
@@ -74,6 +84,7 @@ class model(doublyPeriodic.model):
 
         self._dealias_RHS()
          
+
     def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory """
 
@@ -83,6 +94,7 @@ class model(doublyPeriodic.model):
         # Divide-safe square wavenumber magnitude
         self.__divideSafeKay2 = self.k**2.0 + self.l**2.0
         self.__divideSafeKay2[0, 0] = float('Inf')
+        self.__oneOverKay2 = 1.0 / self.__divideSafeKay2
 
         # Transformed streamfunction and physical vorticity and velocity
         self.psih = np.zeros(self.physVarShape, np.dtype('complex128'))
@@ -90,21 +102,61 @@ class model(doublyPeriodic.model):
         self.u = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v = np.zeros(self.physVarShape, np.dtype('float64'))
             
+
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
 
         qh = self.soln[:, :, 0]
 
         # Transform of streamfunction and physical vorticity and velocity
-        self.psih = - qh / self.__divideSafeKay2 
+        self.psih = - qh * self.__oneOverKay2
         self.q = self.ifft2(qh)
         self.u = -self.ifft2(self.__jl*self.psih)
         self.v =  self.ifft2(self.__jk*self.psih)
+
 
     def set_q(self, q):
         self.soln[:, :, 0] = self.fft2(q)
         self._dealias_soln()
         self.update_state_variables()
+
+
+    def visualize_model_state(self):
+        """ Visualize the model state """
+
+        #plt.ioff()
+        fig = plt.figure('Vorticity'); plt.clf()
+
+        plt.pcolormesh(self.x, self.y, self.q, cmap='YlGnBu_r')
+        plt.axis('square')
+
+        plt.xlabel('$x$', labelpad=5.0); 
+        plt.ylabel('$y$', labelpad=12.0)
+        plt.colorbar()
+
+        #plt.savefig('{}_plots/test_{:d}'.format(self.name, self.step))
+        plt.savefig('test_{:d}'.format(self.step))
+
+        #plt.pause(0.01)
+        
+
+    def _print_status(self):
+        """ Print model status """
+        tc = time.time() - self.timer
+
+        # Update model state and calculate diagnostics
+        self.update_state_variables() 
+        self.evaluate_diagnostics()
+            
+        print( \
+            "step = {:.2e}, clock = {:.2e} s, ".format(self.step, tc) +
+            "t = {:.2e} s, ".format(self.t) +
+            "KE = {:.2e}, ".format(self.diagnostics['KE']['value']) +
+            "CFL = {:.3f}".format(self.diagnostics['CFL']['value'])
+        )
+
+        self.timer = time.time()
+
 
     def describe_model(self):
         print("\nThis is a doubly-periodic spectral model for \n" + \
@@ -117,3 +169,22 @@ class model(doublyPeriodic.model):
                     self.visc, int(self.viscOrder)) + \
                 " Comp. threads    : {:d} \n".format(self.nThreads) \
         )
+
+
+    # Diagnostic-calculating functions  - - - - - - - - - - - - - - - - - - - -
+    def _calc_CFL(self): 
+        """ Calculate the maximum CFL number in the model """
+
+        maxSpeed = (np.sqrt(self.u**2.0 + self.v**2.0)).max()
+        CFL = maxSpeed * self.dt * self.nx/self.Lx
+
+        return CFL
+
+
+    def _calc_KE(self): 
+        """ Calculate the total kinetic energy in the two-layer flow """
+
+        KE = (self.Lx*self.Ly)/(self.nx*self.ny) \
+            *1.0/2.0*( (self.k**2.0+self.l**2.0)*np.abs(self.psih)**2.0 ).sum()
+
+        return KE
