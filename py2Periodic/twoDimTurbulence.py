@@ -1,10 +1,11 @@
 import doublyPeriodic
 import numpy as np; from numpy import pi 
-import os, time
+import sys, os, __main__
+import time as timeTools
 import matplotlib.pyplot as plt
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = "twoDimensionalTurbulenceTest", 
+    def __init__(self, name = None,
             # Grid parameters
             nx = 128, ny = None, Lx = 2.0*pi, Ly = None, 
             # Solver parameters
@@ -30,9 +31,11 @@ class model(doublyPeriodic.model):
         )
 
         # Scalar attributes specific to the Physical Problem
-        self.name = name
         self.visc = visc
         self.viscOrder = viscOrder
+        if name is None: 
+            scriptName = os.path.basename(sys.argv[0])
+            self.name = scriptName[:-3] # Remove .py
 
         # Initialize the grid, transform methods, and problem-specific parameters
         self._init_model()
@@ -150,12 +153,12 @@ class model(doublyPeriodic.model):
             HorizontalAlignment='right') 
 
         plt.savefig('{}/{}_{:09d}'.format(
-            self.runName, self.plotDirectory, self.step))
+            self.plotDirectory, self.runName, self.step))
 
 
     def _print_status(self):
         """ Print model status """
-        tc = time.time() - self.timer
+        tc = timeTools.time() - self.timer
 
         # Update model state and calculate diagnostics
         self.update_state_variables() 
@@ -168,7 +171,7 @@ class model(doublyPeriodic.model):
             "CFL = {:.3f}".format(self.diagnostics['CFL']['value'])
         )
 
-        self.timer = time.time()
+        self.timer = timeTools.time()
 
 
     def describe_model(self):
