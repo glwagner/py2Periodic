@@ -21,7 +21,7 @@ class model(doublyPeriodic.model):
             viscOrder = 2.0,
         ):
 
-        doublyPeriodic.model.__init__(self, 
+        doublyPeriodic.model.__init__(self, name = name, 
             physics = "two-dimensional turbulence",
             nVars = 1,
             realVars = True,
@@ -33,9 +33,6 @@ class model(doublyPeriodic.model):
         # Scalar attributes specific to the Physical Problem
         self.visc = visc
         self.viscOrder = viscOrder
-        if name is None: 
-            scriptName = os.path.basename(sys.argv[0])
-            self.name = scriptName[:-3] # Remove .py
 
         # Initialize the grid, transform methods, and problem-specific parameters
         self._init_model()

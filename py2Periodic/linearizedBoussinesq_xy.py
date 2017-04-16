@@ -3,7 +3,7 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = "linearizedBoussinesqEquationsExample", 
+    def __init__(self, name = None,
             # Grid parameters
             nx = 128, ny = None, Lx = 2.0*pi, Ly = None, 
             # Solver parameters
@@ -27,7 +27,7 @@ class model(doublyPeriodic.model):
         ):
 
         # Initialize super-class.
-        doublyPeriodic.model.__init__(self, 
+        doublyPeriodic.model.__init__(self, name = name,
             physics = "single-mode hydrostatic Boussinesq equations" + \
                 " linearized around two-dimensional turbulence",
             nVars = 4, 
@@ -38,7 +38,6 @@ class model(doublyPeriodic.model):
         )
 
         # Physical parameters specific to the Physical Problem
-        self.name = name
         self.f0 = f0
         self.kappa = kappa
         self.meanVisc = meanVisc

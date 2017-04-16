@@ -16,7 +16,14 @@ m = twoDimTurbulence.model(
 
 m.set_q(np.random.standard_normal((m.ny, m.nx)))
 
-m.run(nSteps=1e3, logInterval=1e2, nSaves=100)
+itemsToSave = {
+    'q': np.arange(0, 100, 10), 
+    'u': np.arange(0, 100, 10),
+    'v': np.arange(0, 100, 10),
+}
+
+m.run(nSteps=1000, nLogs=10, nSnaps=10, nPlots=10,
+        runName='test', overwrite=True, itemsToSave=itemsToSave)
 m.update_state_variables()
 
 # Plot the result

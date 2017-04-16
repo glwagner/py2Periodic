@@ -3,20 +3,16 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(
-            self,
-            name = "linearizedNIWEquationExample", 
+    def __init__(self, name = None,
             # Grid parameters
-            nx = 128,
-            Lx = 2.0*pi,
-            ny = None,
-            Ly = None, 
+            nx = 256, ny = None, Lx = 1e6, Ly = None, 
             # Solver parameters
             t  = 0.0,  
-            dt = 1.0e-2,                    # Numerical timestep
+            dt = 1.0,                       # Numerical timestep
             step = 0, 
-            timeStepper = "ETDRK4",         # Time-stepping method
+            timeStepper = "RK4",            # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
+            useFilter = False,
             #
             # Near-inertial equation params: rotating and gravitating Earth 
             f0 = 1.0, 
@@ -29,26 +25,17 @@ class model(doublyPeriodic.model):
         ):
 
         # Initialize super-class.
-        doublyPeriodic.model.__init__(self, 
+        doublyPeriodic.model.__init__(self, name = name,
             physics = "two-dimensional turbulence and the" + \
                             " near-inertial wave equation",
             nVars = 2, 
             realVars = False,
-            # Grid parameters
-            nx = nx,
-            ny = ny,
-            Lx = Lx,
-            Ly = Ly,
-            # Solver parameters
-            t  = t,   
-            dt = dt,                        # Numerical timestep
-            step = step,                    # Current step
-            timeStepper = timeStepper,      # Time-stepping method
-            nThreads = nThreads,            # Number of threads for FFTW
+            # Persistent doublyPeriodic initialization arguments 
+            nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
+            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
 
         # Physical parameters specific to the Physical Problem
-        self.name = name
         self.f0 = f0
         self.kappa = kappa
         self.meanVisc = meanVisc

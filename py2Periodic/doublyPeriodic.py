@@ -1,5 +1,5 @@
 from __future__ import division
-import os
+import os, sys
 import numpy as np; from numpy import pi
 import time as timeTools
 import pyfftw
@@ -7,7 +7,7 @@ import mkl
 import h5py
 
 class model(object):
-    def __init__(self, physics = None, nVars = 1, realVars = False,
+    def __init__(self, name = None, physics = None, nVars = 1, realVars = False,
             # Grid resolution and extent
             nx = 64, ny = None, Lx = 2.0*pi, Ly = None, 
             # Solver parameters
@@ -22,6 +22,10 @@ class model(object):
         # Default grid is square when user specifes only nx
         if Ly is None: Ly = Lx
         if ny is None: ny = nx
+
+        if name is None: 
+            scriptName = os.path.basename(sys.argv[0])
+            self.name = scriptName[:-3] # Remove .py
 
         self.physics = physics
         self.nx = nx

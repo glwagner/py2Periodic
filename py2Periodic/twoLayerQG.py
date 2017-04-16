@@ -3,7 +3,7 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = "twoLayerQuasigeostrophicExample", 
+    def __init__(self, name = None,
             # Grid parameters
             nx = 256, ny = None, Lx = 1e6, Ly = None, 
             # Solver parameters
@@ -31,7 +31,7 @@ class model(doublyPeriodic.model):
         ):
 
         # Initialize super-class.
-        doublyPeriodic.model.__init__(self, 
+        doublyPeriodic.model.__init__(self, name = name,
             physics = "two layer quasi-geostrophic flow",
             nVars = 2, 
             realVars = True,
@@ -41,7 +41,6 @@ class model(doublyPeriodic.model):
         )
             
         # Parameters specific to the Physical Problem
-        self.name = name
         self.f0 = f0
         self.beta = beta
         self.defRadius = defRadius

@@ -3,7 +3,7 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = "hydrostaticWaveEquationExample", 
+    def __init__(self, name = None,
             # Grid parameters
             nx = 256, ny = None, Lx = 1e6, Ly = None, 
             # Solver parameters
@@ -26,7 +26,7 @@ class model(doublyPeriodic.model):
         ):
 
         # Initialize super-class.
-        doublyPeriodic.model.__init__(self, 
+        doublyPeriodic.model.__init__(self, name = name,
             physics = "two-dimensional turbulence and the" + \
                             " hydrostatic wave equation",
             nVars = 2, 
@@ -37,7 +37,6 @@ class model(doublyPeriodic.model):
         )
 
         # Physical parameters specific to the Physical Problem
-        self.name = name
         self.f0 = f0
         self.sigma = sigma
         self.kappa = kappa
