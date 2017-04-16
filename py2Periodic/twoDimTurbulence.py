@@ -1,6 +1,6 @@
 import doublyPeriodic
 import numpy as np; from numpy import pi 
-import time
+import os, time
 import matplotlib.pyplot as plt
 
 class model(doublyPeriodic.model):
@@ -124,21 +124,34 @@ class model(doublyPeriodic.model):
     def visualize_model_state(self):
         """ Visualize the model state """
 
-        #plt.ioff()
-        fig = plt.figure('Vorticity'); plt.clf()
+        self.update_state_variables() 
+        self.evaluate_diagnostics()
 
-        plt.pcolormesh(self.x, self.y, self.q, cmap='YlGnBu_r')
+        fig = plt.figure('Vorticity'); plt.clf()
+        ax = plt.subplot(111)
+
+        (maxVorticity, scale) = (np.max(np.abs(self.q)), 0.8)
+        (cmin, cmax) = (-scale*maxVorticity, scale*maxVorticity)
+
+        plt.pcolormesh(self.x, self.y, self.q, cmap='RdBu_r', 
+            vmin=cmin, vmax=cmax)
         plt.axis('square')
 
         plt.xlabel('$x$', labelpad=5.0); 
         plt.ylabel('$y$', labelpad=12.0)
         plt.colorbar()
 
-        #plt.savefig('{}_plots/test_{:d}'.format(self.name, self.step))
-        plt.savefig('test_{:d}'.format(self.step))
+        message = '$t = {:.2e}$'.format(self.t)
+        title = '$q$ ($\mathrm{s^{-1}}$)'
+        position = ax.get_position()
 
-        #plt.pause(0.01)
-        
+        plt.text(0.00, 1.03, message, transform=ax.transAxes) 
+        plt.text(1.00, 1.03, title, transform=ax.transAxes,
+            HorizontalAlignment='right') 
+
+        plt.savefig('{}/{}_{:09d}'.format(
+            self.runName, self.plotDirectory, self.step))
+
 
     def _print_status(self):
         """ Print model status """

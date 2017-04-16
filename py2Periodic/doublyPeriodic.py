@@ -1,4 +1,5 @@
 from __future__ import division
+import os
 import numpy as np; from numpy import pi
 import time as timeTools
 import pyfftw
@@ -270,6 +271,12 @@ class model(object):
             self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
             self.avgTime = 0.0
 
+        # Plot directory initialization
+        if plotInterval < float('inf'):
+            self.plotDirectory = '{}_plots'.format(self.name)
+            if not os.path.exists(self.plotDirectory):
+                os.makedirs(self.plotDirectory)
+
         # Run
         (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
@@ -278,7 +285,6 @@ class model(object):
             runStep += 1
 
             # Hooks for logging, plotting, saving, and averaging
-            if runStep % logInterval  == 0.0: self._print_status()
             if runStep % plotInterval == 0.0: self.visualize_model_state()
             if runStep % snapInterval == 0.0:
                 iSnap += 1
@@ -303,6 +309,8 @@ class model(object):
                     * (soln0+self.soln) / (2.0*dt0)
                 self.avgTime += dt0
                 (dt0, soln0) = (self.dt, self.soln.copy())
+
+            if runStep % logInterval  == 0.0: self._print_status()
 
             # Assess run completion
             if countingSteps and runStep >= nSteps:            
@@ -346,9 +354,9 @@ class model(object):
         if runName is None:
             defaultName = 'test'
             nDefault = 0
-            while '/{}_{:02d}'.format(defaultName, nDefault) in outputFile:
+            while '/{}{:02d}'.format(defaultName, nDefault) in outputFile:
                 nDefault += 1
-            runName = '{}_{:02d}'.format(defaultName, nDefault)
+            runName = '{}{:02d}'.format(defaultName, nDefault)
 
         # Create new group for the run and store inputs as attributes.
         # Delete output file is 'overwrite' is selected.
