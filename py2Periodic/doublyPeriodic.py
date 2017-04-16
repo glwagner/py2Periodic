@@ -37,7 +37,7 @@ class model(object):
 
         if nThreads is 'maximum' or nThreads > mkl.get_max_threads(): 
             self.nThreads = mkl.get_max_threads()
-        else 
+        else:
             self.nThreads = nThreads
 
         # Set the default time-stepping method attributes for the model
