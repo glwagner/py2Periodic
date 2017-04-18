@@ -64,7 +64,9 @@ class model(object):
 
         # Store a dictionary with input parameters
         self._input = { key:value for key, value in self.__dict__.items()
-            if type(value) in (str, float, int, bool) }
+            if type(value) in (str, float, int, bool) and
+            key not in ('realVars', 'nVars', 'physics')
+        }
 
         # Initialization routines defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()
@@ -399,7 +401,7 @@ class model(object):
         """ Initialize a data group 'snapshots' with time and snapshot 
             datasets for saving of model snapshots during run """
 
-        snapshots = runOutput.create_group('snapshots')
+        snapshots = runOutput.create_group('soln_snapshots')
         snapTime = snapshots.create_dataset('t', 
             (nSnaps+1, ), np.dtype('float64'))
         snapData = snapshots.create_dataset('soln', 
@@ -434,7 +436,9 @@ class model(object):
                 itemDataShape = [ dim for dim in getattr(self, var).shape ]
                 itemDataShape.append(len(saveTimes))
 
-                itemGroups[var] = runOutput.create_group('{}_data'.format(var))
+                itemGroups[var] = runOutput.create_group(
+                    '{}_snapshots'.format(var))
+
                 itemDatasets[var] = itemGroups[var].create_dataset(
                     var, tuple(itemDataShape), np.result_type(getattr(self, var)) )
                 itemTimeData[var] = itemGroups[var].create_dataset(
@@ -456,7 +460,7 @@ class model(object):
 
         return (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, itemTimeData)
 
-
+   
     def visualize_model_state(self):
         """ Dummy routine meant to be overridden by a physical-problem subclass
             routine that visualizes the state of a model by generating a plot to
@@ -721,3 +725,13 @@ class model(object):
 
         self.t += self.dt
         self.step += 1
+ 
+
+def get_data_and_params(fileName, runName):
+
+    dataFile = h5py.File("{}.hdf5".format(fileName)) 
+    runData = dataFile[runName]
+
+    params = { param:value for param, value in runData.attrs.iteritems() }
+
+    return dataFile, runData, params
