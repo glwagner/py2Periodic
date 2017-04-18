@@ -245,11 +245,16 @@ class model(object):
         # Initialization
         if stopTime is not None: countingSteps = False
         else:                    countingSteps = True
+
             
         ## Give "nTask" arguments priority over "taskInterval" specification
         if nLogs  > 0: logInterval  = int(nSteps/nLogs)
         if nPlots > 0: plotInterval = int(nSteps/nPlots)
         if nSnaps > 0: snapInterval = int(max(np.ceil(nSteps/nSnaps), 1))
+
+        if stopTime is not None and snapInterval < float('inf'):
+            raise ValueError("Snapshot saving is not allowed when "
+                "integrated with a specified stopTime")
             
         ## HDF5 save routine initialization
         if snapInterval < float('inf') or itemsToSave is not None:
@@ -258,16 +263,16 @@ class model(object):
 
             if snapInterval < float('inf'):
                 nSnaps = int(nSteps / snapInterval)
-                snapTime, snapData = self._init_snapshot_datasets(runOutput, nSnaps)
+                snapTime, snapData = self._init_snap_datasets(runOutput, nSnaps)
 
                 # Save initial state
+                iSnap = 0
                 snapTime[0] = self.t
                 snapData[:, :, :, 0] = self.soln
-                iSnap = 0
             
             if itemsToSave is not None:
                 (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, 
-                    itemTimeData) = self._init_itemized_saving(runOutput, itemsToSave)
+                    itemTimeData) = self._init_item_datasets(runOutput, itemsToSave)
 
         ## Averaging
         if calcAvgSoln: 
@@ -390,7 +395,7 @@ class model(object):
         del dataFile[runName]
 
 
-    def _init_snapshot_datasets(self, runOutput, nSnaps):
+    def _init_snap_datasets(self, runOutput, nSnaps):
         """ Initialize a data group 'snapshots' with time and snapshot 
             datasets for saving of model snapshots during run """
 
@@ -410,7 +415,7 @@ class model(object):
         return snapTime, snapData
 
 
-    def _init_itemized_saving(self, runOutput, itemsToSave):
+    def _init_item_datasets(self, runOutput, itemsToSave):
         """ Initialize dictionaries with parameters and hdf5 objects needed
             for the itemized saving routine """
 
@@ -431,7 +436,7 @@ class model(object):
 
                 itemGroups[var] = runOutput.create_group('{}_data'.format(var))
                 itemDatasets[var] = itemGroups[var].create_dataset(
-                    var, tuple(itemDataShape) )
+                    var, tuple(itemDataShape), np.result_type(getattr(self, var)) )
                 itemTimeData[var] = itemGroups[var].create_dataset(
                     't', (len(saveTimes),) )
 
