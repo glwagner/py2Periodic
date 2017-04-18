@@ -13,3 +13,6 @@
 
 # HDF5 files
 *.hdf5
+
+# Plots
+*.png

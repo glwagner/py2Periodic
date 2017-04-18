@@ -726,12 +726,3 @@ class model(object):
         self.t += self.dt
         self.step += 1
  
-
-def get_data_and_params(fileName, runName):
-
-    dataFile = h5py.File("{}.hdf5".format(fileName)) 
-    runData = dataFile[runName]
-
-    params = { param:value for param, value in runData.attrs.iteritems() }
-
-    return dataFile, runData, params

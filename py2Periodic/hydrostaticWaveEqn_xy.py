@@ -3,7 +3,8 @@ import numpy as np; from numpy import pi
 import time
 
 class model(doublyPeriodic.model):
-    def __init__(self, name = None,
+    def __init__(self, name = None, 
+            physics = None, nVars = None, realVars = None,
             # Grid parameters
             nx = 256, ny = None, Lx = 1e6, Ly = None, 
             # Solver parameters
