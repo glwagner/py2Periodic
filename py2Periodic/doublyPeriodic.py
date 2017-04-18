@@ -401,7 +401,7 @@ class model(object):
         """ Initialize a data group 'snapshots' with time and snapshot 
             datasets for saving of model snapshots during run """
 
-        snapshots = runOutput.create_group('soln_snapshots')
+        snapshots = runOutput.create_group('run_snapshots')
         snapTime = snapshots.create_dataset('t', 
             (nSnaps+1, ), np.dtype('float64'))
         snapData = snapshots.create_dataset('soln', 
@@ -443,6 +443,8 @@ class model(object):
                     var, tuple(itemDataShape), np.result_type(getattr(self, var)) )
                 itemTimeData[var] = itemGroups[var].create_dataset(
                     't', (len(saveTimes),) )
+
+                itemTimeData[var].dims[0].label = 't'
 
                 # Initialize data and itemSaveNums for each data set.
                 (itemSaveNums[var], readyToSave) = (0, False)
