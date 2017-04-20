@@ -29,6 +29,8 @@ class doublyPeriodicModel(object):
         if name is None: 
             scriptName = os.path.basename(sys.argv[0])
             self.name = scriptName[:-3] # Remove .py from the end.
+        else:
+            self.name = name
 
         self.physics = physics
         self.nVars = nVars
