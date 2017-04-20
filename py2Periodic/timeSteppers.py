@@ -2,7 +2,7 @@ import numpy as np
 from numpy import pi
 
 # Time steppers for the doublyPeriodicModel class
-
+# TODO: perform the refactoring that Keaton recommends.
 
 ## Forward Euler
 def _describe_time_stepper_forwardEuler(self):
