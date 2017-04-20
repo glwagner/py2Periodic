@@ -22,6 +22,10 @@ class model(doublyPeriodicModel):
             viscOrder = 2.0,
         ):
 
+        # Scalar attributes specific to the Physical Problem
+        self.visc = visc
+        self.viscOrder = viscOrder
+
         doublyPeriodicModel.__init__(self, name = name, 
             physics = "two-dimensional turbulence",
             nVars = 1,
@@ -31,15 +35,8 @@ class model(doublyPeriodicModel):
             timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
 
-        # Scalar attributes specific to the Physical Problem
-        self.visc = visc
-        self.viscOrder = viscOrder
-
-        # Initialize the grid, transform methods, and problem-specific parameters
-        self._init_model()
-
         # Set a default initial condition
-        self.set_physical_soln( \
+        self.set_physical_soln(
             0.1*np.random.standard_normal(self.physSolnShape))
 
         self.update_state_variables()

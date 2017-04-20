@@ -27,6 +27,15 @@ class model(doublyPeriodicModel):
             meanViscOrder = 4.0,
         ):
 
+        # Physical parameters specific to the Physical Problem
+        self.f0 = f0
+        self.sigma = sigma
+        self.kappa = kappa
+        self.meanVisc = meanVisc
+        self.waveVisc = waveVisc
+        self.meanViscOrder = meanViscOrder
+        self.waveViscOrder = waveViscOrder
+
         # Initialize super-class.
         doublyPeriodicModel.__init__(self, name = name,
             physics = "two-dimensional turbulence and the" + \
@@ -37,18 +46,6 @@ class model(doublyPeriodicModel):
             nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
             timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
-
-        # Physical parameters specific to the Physical Problem
-        self.f0 = f0
-        self.sigma = sigma
-        self.kappa = kappa
-        self.meanVisc = meanVisc
-        self.waveVisc = waveVisc
-        self.meanViscOrder = meanViscOrder
-        self.waveViscOrder = waveViscOrder
-            
-        # Initialize the model
-        self._init_model()
 
         # Default initial condition.
         soln = np.zeros_like(self.soln)

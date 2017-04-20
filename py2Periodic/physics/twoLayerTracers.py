@@ -36,17 +36,7 @@ class model(doublyPeriodicModel):
             ## Vertical diffusivity
             kappa = None,
         ):
-
-        # Initialize super-class.
-        doublyPeriodicModel.__init__(self, name = name,
-            physics = "two layer quasi-geostrophic flow with tracers",
-            nVars = 4, 
-            realVars = True,
-            # Persistent doublyPeriodic initialization arguments 
-            nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
-            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
-        )
-            
+    
         # Parameters specific to the Physical Problem
         self.f0 = f0
         self.beta = beta
@@ -63,8 +53,15 @@ class model(doublyPeriodicModel):
         self.hDiff = hDiff
         self.hDiffOrder = hDiffOrder
 
-        # Initialize variables and parameters specific to the problem
-        self._init_model()
+        # Initialize super-class.
+        doublyPeriodicModel.__init__(self, name = name,
+            physics = "two layer quasi-geostrophic flow with tracers",
+            nVars = 4, 
+            realVars = True,
+            # Persistent doublyPeriodic initialization arguments 
+            nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
+            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
+        )
 
         # Set a default initial condition.
         q1 = 1e-1*np.random.standard_normal(self.physVarShape)

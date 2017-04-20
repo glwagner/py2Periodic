@@ -32,16 +32,6 @@ class model(doublyPeriodicModel):
             viscOrder = 4.0,
         ):
 
-        # Initialize super-class.
-        doublyPeriodicModel.__init__(self, name = name,
-            physics = "two layer quasi-geostrophic flow",
-            nVars = 2, 
-            realVars = True,
-            # Persistent doublyPeriodic initialization arguments 
-            nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
-            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
-        )
-            
         # Parameters specific to the Physical Problem
         self.f0 = f0
         self.beta = beta
@@ -54,9 +44,16 @@ class model(doublyPeriodicModel):
         self.visc = visc
         self.viscOrder = viscOrder
 
-        # Initialize variables and parameters specific to the problem
-        self._init_model()
-
+        # Initialize super-class.
+        doublyPeriodicModel.__init__(self, name = name,
+            physics = "two layer quasi-geostrophic flow",
+            nVars = 2, 
+            realVars = True,
+            # Persistent doublyPeriodic initialization arguments 
+            nx = nx, ny = ny, Lx = Lx, Ly = Ly, t = t, dt = dt, step = step,
+            timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
+        )
+            
         # Set the initial condition to default.
         self.set_physical_soln( \
             1e-1*np.random.standard_normal(self.physSolnShape))

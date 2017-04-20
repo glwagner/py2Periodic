@@ -12,7 +12,7 @@ turb = twoDimTurbulence.model(
     Lx = 2.0*pi, 
     dt = 1e-2,
     nThreads = 1, 
-    timeStepper = 'AB3',
+    timeStepper = 'RK4',
     visc = 1e-4, 
     viscOrder = 2.0, 
 )

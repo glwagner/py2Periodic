@@ -4,7 +4,7 @@ import time as timeTools
 import numpy as np
 import mkl, pyfftw, h5py
 
-from py2Periodic import timeSteppers
+from py2Periodic import timeStepping
 from numpy import pi
 
 
@@ -51,33 +51,15 @@ class doublyPeriodicModel(object):
         else:
             self.nThreads = nThreads
 
-        # Initialize fastnumpy and numpy multithreading
-        np.use_fastnumpy = True
-        mkl.set_num_threads(self.nThreads)
-
-        # Set the default time-stepping method attributes for the model
-        self._describe_time_stepper = types.MethodType(
-            getattr(timeSteppers, '_describe_time_stepper_' + self.timeStepper),  
-            self)
-            
-        self._init_time_stepper = types.MethodType(
-            getattr(timeSteppers, '_init_time_stepper_' + self.timeStepper),
-            self)
-
-        self._step_forward = types.MethodType(
-            getattr(timeSteppers, '_step_forward_' + self.timeStepper),
-            self) 
-
-        
-    # Initialization methods  - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def _init_model(self):
-        """ Run various initialization routines """
-
         # Store a dictionary with input parameters
         self._input = { key:value for key, value in self.__dict__.items()
             if type(value) in (str, float, int, bool) and
             key not in ('realVars', 'nVars', 'physics')
         }
+
+        # Initialize fastnumpy and numpy multithreading
+        np.use_fastnumpy = True
+        mkl.set_num_threads(self.nThreads)
 
         # Initialization routines defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()
@@ -87,10 +69,12 @@ class doublyPeriodicModel(object):
         self._init_problem_parameters()
         self._init_linear_coeff()
 
-        # Initialize time-stepper once linear coefficient is determined
-        self._init_time_stepper()
+        # Initialize the time-stepper
+        stepper = getattr(timeStepping.methods, self.timeStepper)(self)
+        self._step_forward = stepper.step_forward
 
 
+    # Initialization routines
     def _init_numerical_parameters(self):
         """ Define the grid, initialize core variables, and initialize 
             miscallenous model parameters. """
