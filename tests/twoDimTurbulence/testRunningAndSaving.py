@@ -1,8 +1,9 @@
-import sys; sys.path.append('../../py2Periodic/')
-import twoDimTurbulence
-import numpy as np; from numpy import pi
-import time
+import time, sys; sys.path.append('../../')
+import numpy as np
 import matplotlib.pyplot as plt
+
+from py2Periodic.physics import twoDimTurbulence
+from numpy import pi
 
 m = twoDimTurbulence.model(
     nx = 128, 

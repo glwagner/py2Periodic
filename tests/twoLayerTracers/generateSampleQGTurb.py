@@ -1,8 +1,11 @@
-import sys; sys.path.append('../../py2Periodic/')
-import twoLayerQG
-import numpy as np; from numpy import pi
-import time
+import time, sys
+import numpy as np
 import matplotlib.pyplot as plt
+
+sys.path.append('../../')
+from py2Periodic.physics import twoLayerQG
+from numpy import pi
+
 
 qgParams = { 
     'f0'         : 1e-4,

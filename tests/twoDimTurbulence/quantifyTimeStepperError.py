@@ -1,20 +1,22 @@
-import sys; sys.path.append('../py2Periodic/')
-import twoDimensionalTurbulence
-import numpy as np; from numpy import pi
-import time
+import time, sys
+import numpy as np
 import matplotlib.pyplot as plt
+
+sys.path.append('../../')
+from py2Periodic.physics import twoDimTurbulence
+from numpy import pi
 
 def many2DTurbulenceSimulations(params, dt, nSteps, timeSteppers, q0):
 
     solutions = {}
     # Instantiate and run a bunch of two-dimensional turbulence models.
     for timeStepper in timeSteppers:
-        m = twoDimensionalTurbulence.model(timeStepper = timeStepper,
+        m = twoDimTurbulence.model(timeStepper = timeStepper,
                 dt = dt,
                 **params)
 
         m.set_physical_soln(q0)
-        m.run_nSteps(nSteps=nSteps)
+        m.step_nSteps(nSteps=nSteps)
         m.update_state_variables()
 
         solutions[timeStepper] = m.q
@@ -22,7 +24,7 @@ def many2DTurbulenceSimulations(params, dt, nSteps, timeSteppers, q0):
     return solutions
 
 nSteps0 = 1e2
-dtz = np.array([1.0e-3, 2.0e-3, 4.0e-3, 1.0e-2, 2.0e-2, 4.0e-2, 1.0e-1])
+dtz = [1.0e-3, 2.0e-3, 4.0e-3, 1.0e-2, 2.0e-2, 4.0e-2, 1.0e-1]
 timeSteppers = ['forwardEuler', 'RK4', 'RKW3', 'ETDRK4']
 
 params = {
@@ -39,7 +41,7 @@ q0 = np.random.standard_normal((params['nx'], params['nx'], 1))
 # Run many simulations
 solutions = {}
 for dt in dtz:
-    solutions[dt] = many2DTurbulenceSimulations( \
+    solutions[dt] = many2DTurbulenceSimulations(
         params, dt, int(nSteps0*dtz[-1]/dt), timeSteppers, q0)
 
 # Analyze results
