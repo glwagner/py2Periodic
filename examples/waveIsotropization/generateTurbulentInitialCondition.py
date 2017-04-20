@@ -9,7 +9,7 @@ from numpy import pi
 # Initialize model
 f0 = 1e-4
 Lx = 1e6
-dt = 0.05 * 2.0*pi/f0
+dt = 0.1 * 2.0*pi/f0
 
 params = {
     'nx' : 256,
@@ -19,22 +19,22 @@ params = {
     'viscOrder' : 4.0,
     'timeStepper' : 'RK4',
     'nThreads' : 2,
-    'name' : 'turbulentInitialCondition'
+    'name' : 'turbulentInitialConditions'
 }
 
 turb = twoDimTurbulence.model(**params)
 
 # Generate initial conditions
 initialConditions = {
-    'strong' : turb.random_energy_spectrum(q0rms=0.20*f0, kPeak=64.0),
-    'medium' : turb.random_energy_spectrum(q0rms=0.10*f0, kPeak=64.0),
-    'weak'   : turb.random_energy_spectrum(q0rms=0.07*f0, kPeak=64.0),
+    'strong_1' : turb.random_energy_spectrum(q0rms=0.20*f0, kPeak=32.0),
+    'medium_1' : turb.random_energy_spectrum(q0rms=0.10*f0, kPeak=32.0),
+    'weak_1'   : turb.random_energy_spectrum(q0rms=0.07*f0, kPeak=32.0),
 }
 
 stopTimes = {
-    'strong' : 200.0*2.0*pi/f0, 
-    'medium' : 400.0*2.0*pi/f0, 
-    'weak'   : 600.0*2.0*pi/f0, 
+    'strong_1' : 200.0*2.0*pi/f0, 
+    'medium_1' : 400.0*2.0*pi/f0, 
+    'weak_1'   : 600.0*2.0*pi/f0, 
 }
 
 # Run turbulence models
@@ -46,4 +46,4 @@ for runName, q0 in initialConditions.iteritems():
 
     turb.update_state_variables()
     maxRo = np.abs(turb.q).max() / f0
-    print("\nMaximum Rossby number: {:3f}",format(maxRo))
+    print("\nMaximum Rossby number: {:3f}".format(maxRo))
