@@ -286,6 +286,11 @@ class doublyPeriodicModel(object):
                 os.makedirs(self.plotDirectory)
 
         # Run
+        if runName is None:
+            print("\nRunning a model for " + self.physics + "...")
+        else:
+            print("\nRunning a model for " + self.physics + 
+                " named " + runName + "...")
         (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
 
@@ -347,6 +352,8 @@ class doublyPeriodicModel(object):
 
             outputFile.close()
 
+        # Final visualization
+        if plotInterval < float('inf'): self.visualize_model_state()
 
     # Helper functions  - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _init_hdf5_file(self, outputFileName, runName, overwrite):
