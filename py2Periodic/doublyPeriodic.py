@@ -360,7 +360,7 @@ class doublyPeriodicModel(object):
         # Generate a unique runName if one is not provided.
         # TODO: Spit warning if nDefault > 99
         if runName is None:
-            defaultName = 'test'
+            defaultName = 'run'
             nDefault = 0
             while '/{}{:02d}'.format(defaultName, nDefault) in outputFile:
                 nDefault += 1
