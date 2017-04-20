@@ -182,6 +182,23 @@ class model(doublyPeriodicModel):
         )
 
 
+    def random_energy_spectrum(self, q0rms=0.01, kPeak=16):
+        """ Generate a random initial condition with an rms 
+            Rossby number of q0rms and an energy spectrum peaked
+            at the non-dimensional wavenumber kPeak"""
+
+        dimKPeak = kPeak * 2.0*pi/self.Lx
+
+        phase = 2.0*pi*np.random.rand(self.nl, self.nk)
+
+        q0h = -np.exp(1j*phase)*(self.k**2.0+self.l**2.0)**(3.0/2.0) \
+            / (1.0 + np.sqrt(self.k**2.0+self.l**2.0)/peakK)**8.0
+
+        q0 = self.ifft2(q0h)
+        q0 *= q0rms / np.sqrt( (q0**2.0).mean() )
+        
+        return q0
+
     # Diagnostic-calculating functions  - - - - - - - - - - - - - - - - - - - -
     def _calc_CFL(self): 
         """ Calculate the maximum CFL number in the model """
