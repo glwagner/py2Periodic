@@ -290,7 +290,7 @@ class doublyPeriodicModel(object):
             print("\nRunning a model for " + self.physics + "...")
         else:
             print("\nRunning a model for " + self.physics + 
-                " named " + runName + "...")
+                " named '" + runName + "'...")
         (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
 
