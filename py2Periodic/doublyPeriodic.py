@@ -370,10 +370,10 @@ class doublyPeriodicModel(object):
             if overwriteToSave:
                 del outputFile[runName]
             else:
-                raise ValueError("There is existing data in {}.hdf5/{}! " +
-                    "Find a unique runName or set overwriteToSave=True.".format(
-                    outputFileName, runName))
-
+                raise ValueError("There is existing data in {}.hdf5/{}! "
+                    .format(outputFileName, runName) +
+                    "Find a unique runName or set overwriteToSave=True.")
+                    
         runOutput = outputFile.create_group(runName)
 
         for param, value in self._input.iteritems(): 
