@@ -301,7 +301,7 @@ class doublyPeriodicModel(object):
 
             if itemsToSave is not None:
                 for var, saveTimes in itemsToSave.iteritems():
-                    saveTimes = np.array(saveTimes)
+                    saveTimes = np.array([saveTimes]).flatten()
 
                     if itemBeingSaved[var] and (
                         self.t >= saveTimes[itemSaveNums[var]] or
@@ -432,7 +432,7 @@ class doublyPeriodicModel(object):
         itemTimeData = dict()
 
         for var, saveTimes in itemsToSave.iteritems():
-            saveTimes = np.array(saveTimes)
+            saveTimes = np.array([saveTimes]).flatten()
 
             if saveTimes[-1] < self.t: 
                 itemBeingSaved[var] = False
