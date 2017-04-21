@@ -245,7 +245,6 @@ class doublyPeriodicModel(object):
         if stopTime is not None: countingSteps = False
         else:                    countingSteps = True
 
-            
         ## Give "nTask" arguments priority over "taskInterval" specification
         if nLogs  > 0: logInterval  = int(nSteps/nLogs)
         if nPlots > 0: plotInterval = int(nSteps/nPlots)
@@ -253,7 +252,7 @@ class doublyPeriodicModel(object):
 
         if stopTime is not None and snapInterval < float('inf'):
             raise ValueError("Snapshot saving is not allowed when "
-                "integrated with a specified stopTime")
+                "integrating to a specified stopTime")
             
         ## HDF5 save routine initialization
         if snapInterval < float('inf') or itemsToSave is not None:
@@ -261,13 +260,12 @@ class doublyPeriodicModel(object):
                 runName, overwrite)
 
             if snapInterval < float('inf'):
-                nSnaps = int(nSteps / snapInterval)
+                nSnaps = nSteps // snapInterval + 1
                 snapTime, snapData = self._init_snap_datasets(runOutput, nSnaps)
 
                 # Save initial state
+                (snapTime[0], snapData[:, :, :, 0]) = (self.t, self.soln)
                 iSnap = 0
-                snapTime[0] = self.t
-                snapData[:, :, :, 0] = self.soln
             
             if itemsToSave is not None:
                 (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, 
@@ -286,11 +284,9 @@ class doublyPeriodicModel(object):
                 os.makedirs(self.plotDirectory)
 
         # Run
-        if runName is None:
-            print("\nRunning a model for " + self.physics + "...")
-        else:
-            print("\nRunning a model for " + self.physics + 
-                " named '" + runName + "'...")
+        if runName is not None:
+            print("\n(" + self.physics ") run '" + runName "'...")
+
         (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
 
@@ -342,18 +338,13 @@ class doublyPeriodicModel(object):
                 
                     running = False
 
-        # Run is complete. Finishing up by saving final state if 
-        # not already saved, and closing file.
+        # Run is complete. 
         if snapInterval < float('inf') or itemsToSave is not None:
-            if nSnaps > 0 and iSnap < nSnaps:
-                iSnap += 1
-                snapTime[iSnap] = self.t
-                snapData[..., iSnap] = self.soln
-
             outputFile.close()
 
         # Final visualization
-        if plotInterval < float('inf'): self.visualize_model_state()
+        if plotInterval < float('inf'): 
+            self.visualize_model_state()
 
     # Helper functions  - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _init_hdf5_file(self, outputFileName, runName, overwrite):
@@ -407,9 +398,9 @@ class doublyPeriodicModel(object):
 
         snapshots = runOutput.create_group('run_snapshots')
         snapTime = snapshots.create_dataset('t', 
-            (nSnaps+1, ), np.dtype('float64'))
+            (nSnaps, ), np.dtype('float64'))
         snapData = snapshots.create_dataset('soln', 
-            (self.nl, self.nk, self.nVars, nSnaps+1), np.dtype('complex128'))
+            (self.nl, self.nk, self.nVars, nSnaps), np.dtype('complex128'))
 
         snapData.dims[0].label = 'l'
         snapData.dims[1].label = 'k'
@@ -484,7 +475,6 @@ class doublyPeriodicModel(object):
 
 
     def describe_model(self):
-
         print( \
             "\nThis is a doubly-periodic spectral model with the following " + \
                 "attributes:\n\n" + \
@@ -493,6 +483,17 @@ class doublyPeriodicModel(object):
                 "   Current time : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads) \
         )
+
+    def _step_forward_forwardEuler(self):
+        """ Step the solution forward in time """
+
+        if dt is None: dt=self.dt
+
+        self._calc_right_hand_side(self.soln, self.t)
+        self.soln += dt*(self.RHS + self.linearCoeff*self.soln)
+
+        self.t += dt
+        self.step += 1
 
 
     # Diagnostics - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
