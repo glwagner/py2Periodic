@@ -1,5 +1,5 @@
 from __future__ import division
-import os, sys, types
+import os, sys
 import time as timeTools
 import numpy as np
 import mkl, pyfftw, h5py
@@ -301,6 +301,8 @@ class doublyPeriodicModel(object):
 
             if itemsToSave is not None:
                 for var, saveTimes in itemsToSave.iteritems():
+                    saveTimes = np.array(saveTimes)
+
                     if itemBeingSaved[var] and (
                         self.t >= saveTimes[itemSaveNums[var]] or
                         saveTimes[itemSaveNums[var]]-self.t <= self.dt/2.0 
@@ -401,7 +403,8 @@ class doublyPeriodicModel(object):
         """ Initialize a data group 'snapshots' with time and snapshot 
             datasets for saving of model snapshots during run """
 
-        snapshots = runOutput.create_group('run_snapshots')
+        defaultSnapsName = 'run_snapshots'
+        snapshots = runOutput.create_group(defaultSnapsName)
         snapTime = snapshots.create_dataset('t', 
             (nSnaps, ), np.dtype('float64'))
         snapData = snapshots.create_dataset('soln', 
@@ -429,6 +432,8 @@ class doublyPeriodicModel(object):
         itemTimeData = dict()
 
         for var, saveTimes in itemsToSave.iteritems():
+            saveTimes = np.array(saveTimes)
+
             if saveTimes[-1] < self.t: 
                 itemBeingSaved[var] = False
             else:
