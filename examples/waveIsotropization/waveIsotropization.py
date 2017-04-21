@@ -1,44 +1,55 @@
-import sys; sys.path.append('../py2Periodic/')
-import hydrostaticWaveEqn_xy
-import twoDimTurbulence
-import numpy as np; from numpy import pi
-import time
+import sys, time
+import numpy as np
 import matplotlib.pyplot as plt
+import h5py
+
+sys.path.append('../py2Periodic/')
+from py2Periodic.physics import hydrostaticWaveEqn_xy
+from numpy import pi
 
 # Parameters:
 # * Physical
-Lx = 1e6
 f0 = 1e-4
 alpha = 1
 sigma = f0*np.sqrt(1+alpha)
 kappa = 32.0*pi / (Lx*np.sqrt(alpha))
 # * Numerical
 dt = 0.05 * 2.0*pi/f0
-nx = 256
 # * Frictional
-(turbVisc, turbViscOrder) = (3e8, 4.0)
 (waveVisc, waveViscOrder) = (1e24, 8.0)
 
-# Initialize models
-turb = twoDimTurbulence.model(nx=nx, Lx=Lx, dt=dt, visc=turbVisc, 
-    viscOrder=turbViscOrder, nThreads=2, timeStepper='RK4')
+# Load data
+fileName = 'strongTurbulentInitialConditions.hdf5'
+runName = 'ic_00'
 
-hwe = hydrostaticWaveEqn_xy.model(nx=nx, Lx=Lx, dt=dt, meanVisc=turbVisc, 
-    meanViscOrder=turbViscOrder, waveVisc=waveVisc, waveViscOrder=waveViscOrder,
-    f0=f0, sigma=sigma, kappa=kappa, nThreads=2, timeStepper='ETDRK4')
+dataFile = h5py.File(fileName, 'r')
+run = dataFile[runName]
 
-# Generate turbulence initial condition, rescaling so that rms(q0)=q0rms
-phase = 2.0*pi*np.random.rand(turb.nl, turb.nk)
-peakK = 128.0*pi/Lx
-q0rms = 0.2*f0
+# Generate dictionary of parameters
+params = { param:value for param, value in run.attrs.iteritems() }
 
-q0h = -np.exp(1j*phase)*(turb.k**2.0+turb.l**2.0)**(3.0/2.0) \
-    / (1.0 + np.sqrt(turb.k**2.0+turb.l**2.0)/peakK)**8.0
+# Add new parameters
+addParams = {
+    'meanVisc' : params['visc'], 
+    'meanViscOrder' : params['viscOrder'], 
+    'waveVisc' : waveVisc,
+    'waveViscOrder' : waveViscOrder,
+    'f0' : f0,
+    'sigma' : sigma,
+    'kappa' = kappa, 
+    'dt' : dt, 
+    'timeStepper', 'ETDRK4', 
+}
 
-q0 = turb.ifft2(q0h)
-q0 *= q0rms / np.sqrt( (q0**2.0).mean() )
+del params['visc']
+del params['viscOrder']
 
-turb.set_q(q0)
+params.update(addParams)
+    
+# Initialize hydrostatic wave model
+hwe = hydrostaticWaveEqn_xy.model(**params)
+
+hwe.set_q(q0)
 
 # Run turbulence model
 stopTime = 400.0*pi/f0
