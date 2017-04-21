@@ -235,7 +235,7 @@ class doublyPeriodicModel(object):
     def run(self, nSteps=100, stopTime=None, outputFileName=None, runName=None,
         nLogs=0, logInterval=float('inf'),
         nPlots=0, plotInterval=float('inf'),
-        nSnaps=0, snapInterval=float('inf'), itemsToSave=None, overwrite=False,
+        nSnaps=0, snapInterval=float('inf'), itemsToSave=None, overwriteToSave=False,
         calcAvgSoln=False,
         ):
         """ Step the model forward. The behavior of this method depends strongly
@@ -257,7 +257,7 @@ class doublyPeriodicModel(object):
         ## HDF5 save routine initialization
         if snapInterval < float('inf') or itemsToSave is not None:
             outputFile, runOutput = self._init_hdf5_file(outputFileName, 
-                runName, overwrite)
+                runName, overwriteToSave)
 
             if snapInterval < float('inf'):
                 nSnaps = nSteps // snapInterval + 1
@@ -285,7 +285,7 @@ class doublyPeriodicModel(object):
 
         # Run
         if runName is not None:
-            print("\n(" + self.physics ") run '" + runName "'...")
+            print("\n(" + self.physics + ") Running '" + runName + "'...")
 
         (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
@@ -347,7 +347,7 @@ class doublyPeriodicModel(object):
             self.visualize_model_state()
 
     # Helper functions  - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def _init_hdf5_file(self, outputFileName, runName, overwrite):
+    def _init_hdf5_file(self, outputFileName, runName, overwriteToSave):
         """ Open and prepare the HDF5 file for saving run output """
 
         if outputFileName is None: outputFileName = self.name
@@ -365,9 +365,14 @@ class doublyPeriodicModel(object):
             runName = '{}{:02d}'.format(defaultName, nDefault)
 
         # Create new group for the run and store inputs as attributes.
-        # Delete output file is 'overwrite' is selected.
-        if overwrite and runName in outputFile:
-            del outputFile[runName]
+        # Delete output file is 'overwriteToSave' is selected.
+        if runName in outputFile:
+            if overwriteToSave:
+                del outputFile[runName]
+            else:
+                raise ValueError("There is existing data in {}.hdf5/{}! " +
+                    "Find a unique runName or set overwriteToSave=True.".format(
+                    outputFileName, runName))
 
         runOutput = outputFile.create_group(runName)
 
