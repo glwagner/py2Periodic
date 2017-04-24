@@ -18,6 +18,7 @@ class methods(object):
             """ Step the solution forward in time """
 
             m = self.model
+
             if dt is None: dt=m.dt
 
             m._calc_right_hand_side(m.soln, m.t)
@@ -36,6 +37,7 @@ class methods(object):
             Renaissance. """
 
         def __init__(self, model):
+
             self.model = model
 
             # Allocate intermediate solution variable

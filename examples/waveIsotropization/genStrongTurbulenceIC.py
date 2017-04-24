@@ -22,19 +22,18 @@ params = {
     'viscOrder' : 4.0,
     'timeStepper' : 'RK4',
     'nThreads' : 2,
-    'name' : 'strongTurbulentInitialConditions'
+    'name' : 'strongTurbData'
 }
 
 turb = twoDimTurbulence.model(**params)
 
 for i in xrange(10):
-    strongIC = turb.random_energy_spectrum(q0rms=0.20*f0, kPeak=64.0)
+
+    strongIC = turb.random_energy_spectrum(q0rms=0.18*f0, kPeak=64.0)
     turb.set_q(strongIC)
 
-    turb.run(nSteps=np.ceil(stopTime/dt), 
-        nLogs=100, nPlots=100, nSnaps=10, runName='ic_{:02d}'.format(i), 
-        itemsToSave=itemsToSave, overwriteToSave=True,
-        )
+    turb.run(nSteps=np.ceil(stopTime/dt), nLogs=10,
+        runName='ic_{:02d}'.format(i), saveEndpoint=True)
 
     turb.update_state_variables()
     maxRo = np.abs(turb.q).max() / f0
