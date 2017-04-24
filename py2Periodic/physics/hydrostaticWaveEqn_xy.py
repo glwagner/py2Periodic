@@ -252,7 +252,7 @@ class model(doublyPeriodicModel):
         self.update_state_variables()
 
 
-    def visualize_model_state(self):
+    def visualize_model_state(self, show=False):
         """ Visualize the model state """
 
         self.update_state_variables() 
@@ -280,8 +280,12 @@ class model(doublyPeriodicModel):
         plt.text(1.00, 1.03, titles[1], transform=axArr[1].transAxes,
             HorizontalAlignment='right') 
         
-        plt.savefig('{}/{}_{:09d}'.format(
-            self.plotDirectory, self.runName, self.step))
+        if show:
+            plt.pause(0.01)
+        else:
+            plt.savefig('{}/{}_{:09d}'.format(
+                self.plotDirectory, self.runName, self.step))
+            plt.close(fig)
 
     
     def describe_model(self):
