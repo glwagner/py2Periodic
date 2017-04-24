@@ -1,6 +1,5 @@
 from __future__ import division
-import os, sys
-import time as timeTools
+import os, sys, time as timeTools
 import numpy as np
 import mkl, pyfftw, h5py
 
@@ -53,13 +52,11 @@ class doublyPeriodicModel(object):
         else:
             self.nThreads = nThreads
 
-        # Store a dictionary with input parameters
         self._input = { key:value for key, value in self.__dict__.items()
             if type(value) in (str, float, int, bool) and
             key not in ('realVars', 'nVars', 'physics')
         }
 
-        # Initialize fastnumpy and numpy multithreading
         np.use_fastnumpy = True
         mkl.set_num_threads(self.nThreads)
 
@@ -72,11 +69,11 @@ class doublyPeriodicModel(object):
         self._init_linear_coeff()
 
         # Initialize the time-stepper
-        stepper = getattr(timeStepping.methods, self.timeStepper)(self)
-        self._step_forward = stepper.step_forward
+        self._timeStepper = getattr(timeStepping.methods, self.timeStepper)(self)
+        self._step_forward = self._timeStepper.step_forward
 
 
-    # Initialization routines
+    # Initialization routines - - - - - - - - - - - - - - - - - - - - - - - - -   
     def _init_numerical_parameters(self):
         """ Define the grid, initialize core variables, and initialize 
             miscallenous model parameters. """
@@ -163,25 +160,308 @@ class doublyPeriodicModel(object):
                             planner_effort='FFTW_ESTIMATE'))
 
 
-    def set_physical_soln(self, soln):
-        """ Initialize model with a physical space solution """ 
+    
+    # User inteaction - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    def step_nSteps(self, nSteps=1e2, dnLog=float('inf')):
+        """ Simply step forward nStep times. In some respect
+            this is a legacy function """
 
-        for iVar in np.arange(self.nVars):
-            self.soln[:, :, iVar] = self.fft2(soln[:, :, iVar])
+        if not hasattr(self, 'timer'): self.timer = timeTools.time()
 
-        self._dealias_soln()
-        self.update_state_variables()
+        for runStep in xrange(int(nSteps)):
+            self._step_forward()
+            if (runStep+1) % dnLog == 0.0:
+                self._print_status()
 
 
-    def set_spectral_soln(self, soln):
-        """ Initialize model with a spectral space solution """ 
+    def run(self, nSteps=100, stopTime=None, outputFileName=None, runName=None,
+        nLogs=0, logInterval=float('inf'),
+        nPlots=0, plotInterval=float('inf'),
+        nChecks=0, checkInterval=float('inf'), itemsToSave=None, 
+        overwriteToSave=False, saveEndpoint=False, calcAvgSoln=False,
+        ):
+        """ Step the model forward. The behavior of this method depends strongly
+            on the arguments passed to it. """
 
-        self.soln = soln
-        self._dealias_soln()
-        self.update_state_variables()
+        # Initialization
+        if stopTime is not None: countingSteps = False
+        else:                    countingSteps = True
+
+        ## Give "nTask" arguments priority over "taskInterval" specification
+        if nLogs   > 0: logInterval   = int(nSteps/nLogs)
+        if nPlots  > 0: plotInterval  = int(nSteps/nPlots)
+        if nChecks > 0: checkInterval = int(max(np.ceil(nSteps/nChecks), 1))
+
+        if stopTime is not None and checkInterval < float('inf'):
+            raise ValueError("Checkpointing is not allowed when "
+                "integrating to a specified stopTime")
             
+        # HDF5 save routine initialization
+        if ( checkInterval < float('inf') or 
+             itemsToSave is not None or
+             saveEndpoint ):
+            outputFile, runOutput = self._init_hdf5_file(outputFileName, 
+                runName, overwriteToSave)
 
-    # Methods for model operation - - - - - - - - - - - - - - - - - - - - - - - 
+            if checkInterval < float('inf'):
+                nChecks = nSteps // checkInterval + 1
+                checkTime, checkData = self._init_check_datasets(runOutput, nChecks)
+
+                # Save initial state
+                (checkTime[0], checkData[:, :, :, 0]) = (self.t, self.soln)
+                iSnap = 0
+            
+            if itemsToSave is not None:
+                (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, 
+                    itemTimeData) = self._init_item_datasets(runOutput, itemsToSave)
+
+        # Averaging
+        if calcAvgSoln: 
+            (dt0, soln0) = (self.dt, self.soln.copy())
+            if not hasattr(self, 'avgSoln'):
+                self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
+                self.avgTime = 0.0
+
+        # Plot directory initialization
+        if plotInterval < float('inf'):
+            self.plotDirectory = '{}_plots'.format(self.name)
+            if not os.path.exists(self.plotDirectory):
+                os.makedirs(self.plotDirectory)
+
+        # Run
+        if runName is not None:
+            print("\n(" + self.physics + ") Running '" + runName + "'...")
+
+        (runStep, running, self.timer) = (0, True, timeTools.time())
+        while running:
+
+            self._step_forward()
+            runStep += 1
+
+            # Hooks for logging, plotting, saving, and averaging
+            if runStep % plotInterval == 0.0: self.visualize_model_state()
+            if runStep % checkInterval == 0.0:
+                iSnap += 1
+                (checkTime[iSnap], checkData[..., iSnap]) = (self.t, self.soln)
+
+            if itemsToSave is not None:
+                for var, saveTimes in itemsToSave.iteritems():
+                    saveTimes = np.array([saveTimes]).flatten()
+
+                    if itemBeingSaved[var] and (
+                        self.t >= saveTimes[itemSaveNums[var]] or
+                        saveTimes[itemSaveNums[var]]-self.t <= self.dt/2.0 
+                    ):
+                        itemDatasets[var][..., itemSaveNums[var]] = getattr(self, 
+                            var)
+                        itemTimeData[var][itemSaveNums[var]] = self.t 
+
+                        if itemSaveNums[var]+1 == len(saveTimes):
+                            itemBeingSaved[var] = False
+                        else:
+                            itemSaveNums[var] += 1
+
+            if calcAvgSoln:
+                self.avgTime += dt0
+                self.avgSoln +=  (soln0+self.soln) / (2.0*dt0)
+                (dt0, soln0) = (self.dt, self.soln.copy())
+
+            if runStep % logInterval  == 0.0: self._print_status()
+
+            # Assess run completion
+            if countingSteps and runStep >= nSteps:            
+                running = False
+            elif not countingSteps:
+                if self.t >= stopTime:
+                    running = False
+
+                # If the planned final step will overshoot the stopTime 
+                # the run is finished with 10 small forward Euler substeps.
+                elif self.t + self.dt > stopTime:
+                    finalSteps = 10
+                    finalDt = (stopTime - self.t) / finalSteps
+                    for step in xrange(finalSteps): 
+                        self._step_forward_forwardEuler(dt=finalDt)
+                
+                    running = False
+
+        # Run is complete 
+        if calcAvgSoln:
+            self.avgSoln *= 1.0/self.avgTime
+
+        if (saveEndpoint or 
+            checkInterval < float('inf') or itemsToSave is not None):
+
+            if saveEndpoint:
+                endData = runOutput.create_group('endpoint')
+                self._save_current_state(endData)                        
+
+            outputFile.close()
+
+        # Final visualization
+        if plotInterval < float('inf'): 
+            self.visualize_model_state()
+
+
+    # Helper functions for loading and saving - - - - - - - - - - - - - - - - - 
+    def init_from_endpoint(self, fileName, runName):
+        """ Initialize the model from a run with saved endpoint """
+
+        dataFile = h5py.File(fileName, 'r', libver='latest')
+
+        if 'endpoint' not in dataFile[runName]:
+            raise ValueError("The run named {} in {}".format(runName, fileName)
+                + " does not have a saved enpoint.")
+
+        # Get model input and re-initialize
+        params = { param:value
+            for param, value in dataFile[runName].attrs.iteritems() }
+
+        self.__init__(**params)
+
+        self.t = dataFile[runName]['endpoint']['t'].value
+        self.set_spectral_soln(dataFile[runName]['endpoint']['soln'][:])
+            
+        if 'avgSoln' in dataFile[runName]['endpoint']:
+            self.avgSoln = dataFile[runName]['endpoint']['avgSoln'][:]
+            self.avgTime = dataFile[runName]['endpoint']['avgTime'].value
+
+        self.evaluate_diagnostics()
+
+
+    def _save_current_state(self, dataGroup):
+        """ Save the current model state """
+
+        data = dataGroup.create_dataset('soln', data=self.soln)
+        data = dataGroup.create_dataset('t',    data=self.t)
+
+        if hasattr(self, 'avgSoln'):
+            data = dataGroup.create_dataset('avgSoln', data=self.avgSoln)
+            data = dataGroup.create_dataset('avgTime', data=self.avgTime)
+
+
+    def _init_hdf5_file(self, outputFileName, runName, overwriteToSave):
+        """ Open and prepare the HDF5 file for saving run output """
+
+        if outputFileName is None: 
+            outputFileName = "{}.hdf5".format(self.name)
+
+        outputFile = h5py.File(outputFileName, 'a', libver='latest')
+
+        # Generate a unique runName if one is not provided.
+        if runName is None:
+            (defaultName, nName) = ('run{:03d}', 0)
+            while '/' + defaultName.format(nName) in outputFile: nName+=1
+            runName = defaultName.format(nName)
+
+        if runName in outputFile:
+            if overwriteToSave:
+                del outputFile[runName]
+            else:
+                raise ValueError("There is existing data in {}/{}! "
+                    .format(outputFileName, runName) +
+                    "Find a unique runName or set overwriteToSave=True.")
+                    
+        runOutput = outputFile.create_group(runName)
+
+        for param, value in self._input.iteritems(): 
+            runOutput.attrs.create(param, value)
+
+        self.outputFileName = outputFileName            
+        self.runName = runName
+
+        return outputFile, runOutput
+
+
+    def _init_check_datasets(self, runOutput, nChecks):
+        """ Initialize a data group 'checkpoints' with time and checkpoint 
+            datasets for saving of model checkpoints during run """
+
+        checkpoints = runOutput.create_group('checkpoints')
+
+        checkTime = checkpoints.create_dataset('t', 
+            (nChecks, ), np.dtype('float64'))
+
+        checkData = checkpoints.create_dataset('soln', 
+            (self.nl, self.nk, self.nVars, nChecks), np.dtype('complex128'))
+
+        checkData.dims[0].label = 'l'
+        checkData.dims[1].label = 'k'
+        checkData.dims[2].label = 'var'
+        checkData.dims[3].label = 't'
+
+        checkTime.dims[0].label = 't'
+
+        return checkTime, checkData
+
+
+    def _init_item_datasets(self, runOutput, itemsToSave):
+        """ Initialize dictionaries with parameters and hdf5 objects needed
+            for the itemized saving routine """
+
+        itemBeingSaved = dict()
+        itemSaveNums   = dict()
+        itemGroups     = dict()
+        itemDatasets   = dict()
+        itemTimeData   = dict()
+
+        for var, saveTimes in itemsToSave.iteritems():
+            saveTimes = np.array([saveTimes]).flatten()
+
+            if saveTimes[-1] < self.t: 
+                itemBeingSaved[var] = False
+
+            else:
+                itemBeingSaved[var] = True
+
+                itemDataShape = [ dim for dim in getattr(self, var).shape ]
+                itemDataShape.append(len(saveTimes))
+
+                itemGroups[var] = runOutput.create_group(
+                    '{}_snapshots'.format(var))
+
+                itemDatasets[var] = itemGroups[var].create_dataset(
+                    var, tuple(itemDataShape), np.result_type(getattr(self, var)) )
+
+                itemTimeData[var] = itemGroups[var].create_dataset(
+                    't', (len(saveTimes),) )
+
+                itemTimeData[var].dims[0].label = 't'
+
+                # Initialize data and itemSaveNums for each data set.
+                (itemSaveNums[var], readyToSave) = (0, False)
+                while not readyToSave:
+                    if saveTimes[itemSaveNums[var]] > self.t + self.dt:
+                        readyToSave = True
+
+                    elif np.abs(self.t 
+                            - saveTimes[itemSaveNums[var]]) <= self.dt/2.0:
+
+                        itemTimeData[var][itemSaveNums[var]] = self.t 
+                        itemDatasets[var][..., itemSaveNums[var]] = getattr(
+                            self, var)
+
+                        readyToSave = True 
+                        itemSaveNums[var] += 1
+
+                    else:
+                        itemSaveNums[var] += 1
+
+        return (itemBeingSaved, itemSaveNums, itemGroups, 
+                    itemDatasets, itemTimeData)
+
+
+    def delete_run_data(self, outputFileName=None, runName=None):
+        """ Delete all data from a model run """
+
+        if outputFileName is None: outputFileName = self.outputFileName
+        if runName is None: runName = self.runName
+
+        dataFile = h5py.File(outputFileName, 'a', libver='latest')
+
+        del dataFile[runName]
+
+    # Miscellaneous - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def _dealias_RHS(self):
 
         if self.useFilter:
@@ -219,255 +499,6 @@ class doublyPeriodicModel(object):
         
         return var
 
-    # User inteaction - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def step_nSteps(self, nSteps=1e2, dnLog=float('inf')):
-        """ Simply step forward nStep times. In some respect
-            this is a legacy function """
-
-        if not hasattr(self, 'timer'): self.timer = timeTools.time()
-
-        for runStep in xrange(int(nSteps)):
-            self._step_forward()
-            if (runStep+1) % dnLog == 0.0:
-                self._print_status()
-
-
-    def run(self, nSteps=100, stopTime=None, outputFileName=None, runName=None,
-        nLogs=0, logInterval=float('inf'),
-        nPlots=0, plotInterval=float('inf'),
-        nSnaps=0, snapInterval=float('inf'), itemsToSave=None, overwriteToSave=False,
-        calcAvgSoln=False,
-        ):
-        """ Step the model forward. The behavior of this method depends strongly
-            on the arguments passed to it. """
-
-        # Initialization
-        if stopTime is not None: countingSteps = False
-        else:                    countingSteps = True
-
-        ## Give "nTask" arguments priority over "taskInterval" specification
-        if nLogs  > 0: logInterval  = int(nSteps/nLogs)
-        if nPlots > 0: plotInterval = int(nSteps/nPlots)
-        if nSnaps > 0: snapInterval = int(max(np.ceil(nSteps/nSnaps), 1))
-
-        if stopTime is not None and snapInterval < float('inf'):
-            raise ValueError("Snapshot saving is not allowed when "
-                "integrating to a specified stopTime")
-            
-        ## HDF5 save routine initialization
-        if snapInterval < float('inf') or itemsToSave is not None:
-            outputFile, runOutput = self._init_hdf5_file(outputFileName, 
-                runName, overwriteToSave)
-
-            if snapInterval < float('inf'):
-                nSnaps = nSteps // snapInterval + 1
-                snapTime, snapData = self._init_snap_datasets(runOutput, nSnaps)
-
-                # Save initial state
-                (snapTime[0], snapData[:, :, :, 0]) = (self.t, self.soln)
-                iSnap = 0
-            
-            if itemsToSave is not None:
-                (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, 
-                    itemTimeData) = self._init_item_datasets(runOutput, itemsToSave)
-
-        ## Averaging
-        if calcAvgSoln: 
-            (dt0, soln0) = (self.dt, self.soln.copy())
-            self.avgSoln = np.zeros(self.specSolnShape, np.dtype('complex128'))
-            self.avgTime = 0.0
-
-        # Plot directory initialization
-        if plotInterval < float('inf'):
-            self.plotDirectory = '{}_plots'.format(self.name)
-            if not os.path.exists(self.plotDirectory):
-                os.makedirs(self.plotDirectory)
-
-        # Run
-        if runName is not None:
-            print("\n(" + self.physics + ") Running '" + runName + "'...")
-
-        (runStep, running, self.timer) = (0, True, timeTools.time())
-        while running:
-
-            self._step_forward()
-            runStep += 1
-
-            # Hooks for logging, plotting, saving, and averaging
-            if runStep % plotInterval == 0.0: self.visualize_model_state()
-            if runStep % snapInterval == 0.0:
-                iSnap += 1
-                (snapTime[iSnap], snapData[..., iSnap]) = (self.t, self.soln)
-
-            if itemsToSave is not None:
-                for var, saveTimes in itemsToSave.iteritems():
-                    saveTimes = np.array([saveTimes]).flatten()
-
-                    if itemBeingSaved[var] and (
-                        self.t >= saveTimes[itemSaveNums[var]] or
-                        saveTimes[itemSaveNums[var]]-self.t <= self.dt/2.0 
-                    ):
-                        itemDatasets[var][..., itemSaveNums[var]] = getattr(self, var)
-                        itemTimeData[var][itemSaveNums[var]] = self.t 
-
-                        if itemSaveNums[var]+1 == len(saveTimes):
-                            itemBeingSaved[var] = False
-                        else:
-                            itemSaveNums[var] += 1
-
-            if calcAvgSoln:
-                self.avgSoln += self.avgTime / (self.avgTime+dt0) \
-                    * (soln0+self.soln) / (2.0*dt0)
-                self.avgTime += dt0
-                (dt0, soln0) = (self.dt, self.soln.copy())
-
-            if runStep % logInterval  == 0.0: self._print_status()
-
-            # Assess run completion
-            if countingSteps and runStep >= nSteps:            
-                running = False
-            elif not countingSteps:
-                if self.t >= stopTime:
-                    running = False
-                elif self.t + self.dt > stopTime:
-                    # This hook handles cases where the planned final step will 
-                    # overshoot the stopTime. In this case, 10 small steps are 
-                    # carried out with the forward Euler scheme to finish the run.
-                    finalSteps = 10
-                    finalDt = (stopTime - self.t) / finalSteps
-                    for step in xrange(finalSteps): 
-                        self._step_forward_forwardEuler(dt=finalDt)
-                
-                    running = False
-
-        # Run is complete. 
-        if snapInterval < float('inf') or itemsToSave is not None:
-            outputFile.close()
-
-        # Final visualization
-        if plotInterval < float('inf'): 
-            self.visualize_model_state()
-
-    # Helper functions  - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-    def _init_hdf5_file(self, outputFileName, runName, overwriteToSave):
-        """ Open and prepare the HDF5 file for saving run output """
-
-        if outputFileName is None: outputFileName = self.name
-
-        outputFile = h5py.File("{}.hdf5".format(outputFileName), 
-            'a', libver='latest')
-
-        # Generate a unique runName if one is not provided.
-        # TODO: Spit warning if nDefault > 99
-        if runName is None:
-            defaultName = 'run'
-            nDefault = 0
-            while '/{}{:02d}'.format(defaultName, nDefault) in outputFile:
-                nDefault += 1
-            runName = '{}{:02d}'.format(defaultName, nDefault)
-
-        # Create new group for the run and store inputs as attributes.
-        # Delete output file is 'overwriteToSave' is selected.
-        if runName in outputFile:
-            if overwriteToSave:
-                del outputFile[runName]
-            else:
-                raise ValueError("There is existing data in {}.hdf5/{}! "
-                    .format(outputFileName, runName) +
-                    "Find a unique runName or set overwriteToSave=True.")
-                    
-        runOutput = outputFile.create_group(runName)
-
-        for param, value in self._input.iteritems(): 
-            runOutput.attrs.create(param, value)
-
-        self.outputFileName = outputFileName            
-        self.runName = runName
-
-        return outputFile, runOutput
-
-
-    def delete_run_data(self, outputFileName=None, runName=None):
-        """ Delete all data from a model run """
-
-        if outputFileName is None: outputFileName = self.outputFileName
-        if runName is None: runName = self.runName
-
-        dataFile = h5py.File("{}.hdf5".format(outputFileName), 
-            'a', libver='latest')
-
-        del dataFile[runName]
-
-
-    def _init_snap_datasets(self, runOutput, nSnaps):
-        """ Initialize a data group 'snapshots' with time and snapshot 
-            datasets for saving of model snapshots during run """
-
-        defaultSnapsName = 'run_snapshots'
-        snapshots = runOutput.create_group(defaultSnapsName)
-        snapTime = snapshots.create_dataset('t', 
-            (nSnaps, ), np.dtype('float64'))
-        snapData = snapshots.create_dataset('soln', 
-            (self.nl, self.nk, self.nVars, nSnaps), np.dtype('complex128'))
-
-        snapData.dims[0].label = 'l'
-        snapData.dims[1].label = 'k'
-        snapData.dims[2].label = 'var'
-        snapData.dims[3].label = 't'
-
-        snapTime.dims[0].label = 't'
-
-        return snapTime, snapData
-
-
-    def _init_item_datasets(self, runOutput, itemsToSave):
-        """ Initialize dictionaries with parameters and hdf5 objects needed
-            for the itemized saving routine """
-
-        # TODO: spit warning if the specified time points are not in order.
-        itemBeingSaved = dict()
-        itemSaveNums = dict()
-        itemGroups = dict()
-        itemDatasets = dict()
-        itemTimeData = dict()
-
-        for var, saveTimes in itemsToSave.iteritems():
-            saveTimes = np.array([saveTimes]).flatten()
-
-            if saveTimes[-1] < self.t: 
-                itemBeingSaved[var] = False
-            else:
-                itemBeingSaved[var] = True
-                itemDataShape = [ dim for dim in getattr(self, var).shape ]
-                itemDataShape.append(len(saveTimes))
-
-                itemGroups[var] = runOutput.create_group(
-                    '{}_snapshots'.format(var))
-
-                itemDatasets[var] = itemGroups[var].create_dataset(
-                    var, tuple(itemDataShape), np.result_type(getattr(self, var)) )
-                itemTimeData[var] = itemGroups[var].create_dataset(
-                    't', (len(saveTimes),) )
-
-                itemTimeData[var].dims[0].label = 't'
-
-                # Initialize data and itemSaveNums for each data set.
-                (itemSaveNums[var], readyToSave) = (0, False)
-                while not readyToSave:
-                    if saveTimes[itemSaveNums[var]] > self.t + self.dt:
-                        readyToSave = True
-                    elif np.abs(self.t-saveTimes[itemSaveNums[var]]) <= self.dt/2.0:
-                        itemDatasets[var][..., itemSaveNums[var]] = getattr(self, var)
-                        itemTimeData[var][itemSaveNums[var]] = self.t 
-
-                        readyToSave = True 
-                        itemSaveNums[var] += 1
-                    else:
-                        itemSaveNums[var] += 1
-
-        return (itemBeingSaved, itemSaveNums, itemGroups, itemDatasets, itemTimeData)
-
-   
     def visualize_model_state(self):
         """ Dummy routine meant to be overridden by a physical-problem subclass
             routine that visualizes the state of a model by generating a plot to
@@ -485,14 +516,33 @@ class doublyPeriodicModel(object):
 
 
     def describe_model(self):
-        print( \
-            "\nThis is a doubly-periodic spectral model with the following " + \
-                "attributes:\n\n" + \
-                "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly) + \
-                "   Grid         : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                "   Current time : {:.2e} s\n\n".format(self.t) + \
-                "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads) \
+        print(
+            "\nThis is a doubly-periodic spectral model with the following "
+                "attributes:\n\n"
+              + "   Domain       : {:.2e} X {:.2e} m\n".format(self.Lx, self.Ly)
+              + "   Grid         : {:d} X {:d}\n".format(self.nx, self.ny)
+              + "   Current time : {:.2e} s\n\n".format(self.t)
+              + "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads)
         )
+
+
+    def set_physical_soln(self, soln):
+        """ Initialize model with a physical space solution """ 
+
+        for iVar in np.arange(self.nVars):
+            self.soln[:, :, iVar] = self.fft2(soln[:, :, iVar])
+
+        self._dealias_soln()
+        self.update_state_variables()
+
+
+    def set_spectral_soln(self, soln):
+        """ Initialize model with a spectral space solution """ 
+
+        self.soln = soln
+        self._dealias_soln()
+        self.update_state_variables()
+
 
     def _step_forward_forwardEuler(self):
         """ Step the solution forward in time """
@@ -504,6 +554,10 @@ class doublyPeriodicModel(object):
 
         self.t += dt
         self.step += 1
+
+    def update_state_variables(self):
+        """ Placeholder function to be redefined in child model """
+        pass
 
 
     # Diagnostics - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
