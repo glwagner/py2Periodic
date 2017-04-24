@@ -23,15 +23,9 @@ itemsToSave = {
     'v': np.arange(0, 100, 10),
 }
 
-m.run(nSteps=1000, nLogs=10, nSnaps=10, nPlots=10,
-        runName='test', overwrite=True, itemsToSave=itemsToSave)
+m.run(nSteps=1000, nLogs=10, nChecks=10, nPlots=10,
+        runName='test', overwriteToSave=True, itemsToSave=itemsToSave, 
+        saveEndpoint=True)
 m.update_state_variables()
 
-# Plot the result
-fig = plt.figure('vorticity', figsize=(6, 6)); plt.clf()
-
-plt.pcolormesh(m.x, m.y, m.q, cmap='YlGnBu_r'); plt.axis('square') 
-
-plt.xlabel('$x$', labelpad=5.0); 
-plt.ylabel('$y$', labelpad=12.0)
-plt.colorbar()
+m.visualize_model_state(show=True)
