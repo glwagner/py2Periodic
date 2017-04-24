@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import h5py
 
 from ..doublyPeriodic import doublyPeriodicModel
 from numpy import pi 
@@ -207,7 +208,6 @@ class model(doublyPeriodicModel):
         self.Ayy = np.zeros(self.physVarShape, np.dtype('complex128'))
         self.Axy = np.zeros(self.physVarShape, np.dtype('complex128'))
 
-
    
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
@@ -251,6 +251,7 @@ class model(doublyPeriodicModel):
         self._dealias_soln()
         self.update_state_variables()
 
+
     def visualize_model_state(self):
         """ Visualize the model state """
 
@@ -282,6 +283,7 @@ class model(doublyPeriodicModel):
         plt.savefig('{}/{}_{:09d}'.format(
             self.plotDirectory, self.runName, self.step))
 
+    
     def describe_model(self):
         """ Describe the current model state """
 
@@ -317,3 +319,40 @@ class model(doublyPeriodicModel):
         )
 
         return E
+
+# External helper functions - - - - - - - - - - - - - - - - - - - - - - - - - - 
+def init_from_turb_endpoint(fileName, runName, **kwargs):
+    """ Initialize a hydrostatic wave eqn model from the saved endpoint of a 
+        twoDimTurbulence run. """
+            
+    dataFile = h5py.File(fileName, 'r', libver='latest')
+
+    if 'endpoint' not in dataFile[runName]:
+        raise ValueError("The run named {} in {}".format(runName, fileName)
+            + " does not have a saved endpoint.")
+
+    # Get model input and re-initialize
+    inputParams = { param:value
+        for param, value in dataFile[runName].attrs.iteritems() }
+
+    # Change 'visc' to 'meanVisc'
+    inputParams['meanVisc'] = inputParams.pop('visc')
+    inputParams['meanViscOrder'] = inputParams.pop('viscOrder')
+
+    # Change default time-stepper
+    inputParams['timeStepper'] = 'ETDRK4'
+
+    # Re-initialize model with input params, if any are given
+    print(kwargs)
+    if kwargs is not None:
+        inputParams.update(kwargs)
+
+    hwe = model(**inputParams)
+
+    # Initialize turbulence field
+    hwe.soln[:, :, 0] = dataFile[runName]['endpoint']['soln'][:, :, 0]
+    hwe._dealias_soln()
+    hwe.update_state_variables()
+
+    return hwe
+
