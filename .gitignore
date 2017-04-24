@@ -16,3 +16,6 @@
 
 # Plots
 *.png
+
+# What are these?
+*.DS_Store
