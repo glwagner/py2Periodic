@@ -1,5 +1,6 @@
-import numpy as np
 import time
+import numpy as np
+import matplotlib.pyplot as plt
 
 from ..doublyPeriodic import doublyPeriodicModel
 from numpy import pi 
@@ -267,9 +268,19 @@ class model(doublyPeriodicModel):
         axArr[0].set_ylabel('$y$')
         axArr[0].set_xlabel('$x$')
         axArr[1].set_xlabel('$x$')
-        
-        plt.pause(0.01)
 
+        message = '$t = {:.2e}$'.format(self.t)
+        titles = ['$q$ ($\mathrm{s^{-1}}$)', '$\sqrt{u^2+v^2}$ (m/s)']
+        positions = [axArr[0].get_position(), axArr[1].get_position()]
+
+        plt.text(0.00, 1.03, message, transform=axArr[0].transAxes) 
+        plt.text(1.00, 1.03, titles[0], transform=axArr[0].transAxes,
+            HorizontalAlignment='right') 
+        plt.text(1.00, 1.03, titles[1], transform=axArr[1].transAxes,
+            HorizontalAlignment='right') 
+        
+        plt.savefig('{}/{}_{:09d}'.format(
+            self.plotDirectory, self.runName, self.step))
 
     def describe_model(self):
         """ Describe the current model state """
