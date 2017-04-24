@@ -201,6 +201,7 @@ class doublyPeriodicModel(object):
         if ( checkInterval < float('inf') or 
              itemsToSave is not None or
              saveEndpoint ):
+
             outputFile, runOutput = self._init_hdf5_file(outputFileName, 
                 runName, overwriteToSave)
 
@@ -225,6 +226,7 @@ class doublyPeriodicModel(object):
 
         # Plot directory initialization
         if plotInterval < float('inf'):
+            if not hasattr(self, 'runName'): self.runName = 'plot'
             self.plotDirectory = '{}_plots'.format(self.name)
             if not os.path.exists(self.plotDirectory):
                 os.makedirs(self.plotDirectory)
