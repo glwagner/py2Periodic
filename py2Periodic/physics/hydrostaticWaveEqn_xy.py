@@ -350,9 +350,7 @@ def init_from_turb_endpoint(fileName, runName, **kwargs):
     hwe = model(**inputParams)
 
     # Initialize turbulence field
-    hwe.soln[:, :, 0] = dataFile[runName]['endpoint']['soln'][:, :, 0]
-    hwe._dealias_soln()
-    hwe.update_state_variables()
+    hwe.set_q(dataFile[runName]['endpoint']['q'][:])
 
     return hwe
 
