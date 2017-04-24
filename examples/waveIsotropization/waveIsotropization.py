@@ -28,7 +28,7 @@ params = {
 }
 
 hwe = hydrostaticWaveEqn_xy.init_from_turb_endpoint(
-        'strongTurbData.hdf5', 'ic_06', **params)
+        'strongTurbData.hdf5', 'ic_08')
 
 plt.figure('Initial condition'), plt.clf()
 plt.imshow(hwe.q)
