@@ -230,7 +230,13 @@ class doublyPeriodicModel(object):
 
         # Run
         if runName is not None:
-            print("\n(" + self.physics + ") Running '" + runName + "'...")
+            if countingSteps:
+                print("\n(" + self.physics + ") Running '" + runName 
+                    + "' for {:d} steps...".format(nSteps))
+            else:
+                print("\n(" + self.physics + ") Running '" + runName 
+                    + "' from t={:.2e} to t={:2.e}".format(
+                    self.t, stopTime))
 
         (runStep, running, self.timer) = (0, True, timeTools.time())
         while running:
