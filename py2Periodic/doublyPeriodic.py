@@ -178,7 +178,8 @@ class doublyPeriodicModel(object):
         nLogs=0, logInterval=float('inf'),
         nPlots=0, plotInterval=float('inf'),
         nChecks=0, checkInterval=float('inf'), itemsToSave=None, 
-        overwriteToSave=False, saveEndpoint=False, calcAvgSoln=False,
+        overwriteToSave=False, saveEndpoint=False, saveEndpointVars=None,
+        calcAvgSoln=False,
         ):
         """ Step the model forward. The behavior of this method depends strongly
             on the arguments passed to it. """
@@ -300,7 +301,7 @@ class doublyPeriodicModel(object):
 
             if saveEndpoint:
                 endData = runOutput.create_group('endpoint')
-                self._save_current_state(endData)                        
+                self._save_current_state(endData, vars=saveEndpointVars)
 
             outputFile.close()
 
@@ -335,11 +336,15 @@ class doublyPeriodicModel(object):
         self.evaluate_diagnostics()
 
 
-    def _save_current_state(self, dataGroup):
+    def _save_current_state(self, dataGroup, vars=None):
         """ Save the current model state """
 
         data = dataGroup.create_dataset('soln', data=self.soln)
         data = dataGroup.create_dataset('t',    data=self.t)
+        
+        if vars is not None:
+            for var in vars:
+                data = dataGroup.create_dataset(var, data=getattr(self, var))
 
         if hasattr(self, 'avgSoln'):
             data = dataGroup.create_dataset('avgSoln', data=self.avgSoln)
