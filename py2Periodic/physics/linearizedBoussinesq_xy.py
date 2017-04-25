@@ -13,7 +13,7 @@ class model(doublyPeriodicModel):
             t  = 0.0,  
             dt = 1.0e-2,                    # Numerical timestep
             step = 0, 
-            timeStepper = "RK4",            # Time-stepping method
+            timeStepper = 'RK4',            # Time-stepping method
             nThreads = 1,                   # Number of threads for FFTW
             useFilter = False,
             #
@@ -50,12 +50,9 @@ class model(doublyPeriodicModel):
             timeStepper = timeStepper, nThreads = nThreads, useFilter = useFilter,
         )
         
-        ## Default vorticity initial condition: Gaussian vortex
-        rVortex = self.Lx/20
-        q0 = 0.1*self.f0 * np.exp( \
-            - ( (self.x-self.Lx/2.0)**2.0 + (self.y-self.Ly/2.0)**2.0 ) \
-            / (2*rVortex**2.0) \
-                       )
+        # Default vorticity initial condition: Gaussian vortex
+        (xc, yc, R) = (self.x-self.Lx/2.0, self.y-self.Ly/2.0, self.Lx/20.0)
+        q0 = 0.1*self.f0 * np.exp( -(xc**2.0+yc**2.0)/(2*R**2.0) )
 
         # Default wave initial condition: uniform velocity.
         u, v, p = self.make_plane_wave(16)
@@ -271,3 +268,40 @@ class model(doublyPeriodicModel):
                 "   Timestep     : {:.2e} s\n".format(self.dt) + \
                 "   Current time : {:.2e} s\n\n".format(self.t) + \
                 "The FFT scheme uses {:d} thread(s).\n".format(self.nThreads))
+
+
+
+# External helper functions - - - - - - - - - - - - - - - - - - - - - - - - - - 
+def init_from_turb_endpoint(fileName, runName, **kwargs):
+    """ Initialize a hydrostatic wave eqn model from the saved endpoint of a 
+        twoDimTurbulence run. """
+            
+    dataFile = h5py.File(fileName, 'r', libver='latest')
+
+    if 'endpoint' not in dataFile[runName]:
+        raise ValueError("The run named {} in {}".format(runName, fileName)
+            + " does not have a saved endpoint.")
+
+    # Get model input and re-initialize
+    inputParams = { param:value
+        for param, value in dataFile[runName].attrs.iteritems() }
+
+    # Change 'visc' to 'meanVisc'
+    inputParams['meanVisc'] = inputParams.pop('visc')
+    inputParams['meanViscOrder'] = inputParams.pop('viscOrder')
+
+    # Change default time-stepper
+    inputParams['timeStepper'] = 'RK4'
+
+    # Re-initialize model with input params, if any are given
+    print(kwargs)
+    if kwargs is not None:
+        inputParams.update(kwargs)
+
+    m = model(**inputParams)
+
+    # Initialize turbulence field
+    m.set_q(dataFile[runName]['endpoint']['q'][:])
+
+    return m
+

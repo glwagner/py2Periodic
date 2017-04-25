@@ -315,10 +315,10 @@ class model(doublyPeriodicModel):
         """ Calculate the total mean energy """
 
         E = np.sum( self.Lx*self.Ly*(self.k**2.0+self.l**2.0)
-                        * np.abs(self.psih)**2.0
-        )
+                        * np.abs(self.psih)**2.0 )
 
         return E
+
 
 # External helper functions - - - - - - - - - - - - - - - - - - - - - - - - - - 
 def init_from_turb_endpoint(fileName, runName, **kwargs):
@@ -347,10 +347,10 @@ def init_from_turb_endpoint(fileName, runName, **kwargs):
     if kwargs is not None:
         inputParams.update(kwargs)
 
-    hwe = model(**inputParams)
+    m = model(**inputParams)
 
     # Initialize turbulence field
-    hwe.set_q(dataFile[runName]['endpoint']['q'][:])
+    m.set_q(dataFile[runName]['endpoint']['q'][:])
 
-    return hwe
+    return m
 
