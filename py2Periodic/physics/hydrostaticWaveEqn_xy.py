@@ -291,19 +291,20 @@ class model(doublyPeriodicModel):
     def describe_model(self):
         """ Describe the current model state """
 
-        print("\nThis is a doubly-periodic spectral model for \n" + \
-                "{:s} \n".format(self.physics) + \
-                "with the following attributes:\n\n" + \
-                " Domain             : {:.2e} X {:.2e} m\n".format( \
-                    self.Lx, self.Ly) + \
-                " Grid               : {:d} X {:d}\n".format(self.nx, self.ny) + \
-                " Wave hypervisc     : {:.2e} m^{:d}/s\n".format( \
-                    self.waveVisc, int(self.waveViscOrder)) + \
-                " Mean hypervisc     : {:.2e} m^{:d}/s\n".format( \
-                    self.meanVisc, int(self.meanViscOrder)) + \
-                " Frequency param    : {:.2f}\n".format(self.alpha) + \
-                " Comp. threads      : {:d} \n".format(self.nThreads) \
+        print("\nThis is a doubly-periodic spectral model for \n"
+              + "{:s} \n".format(self.physics)
+              + "with the following attributes:\n\n"
+              + " Domain             : {:.2e} X {:.2e} m\n".format(
+                    self.Lx, self.Ly)
+              + " Grid               : {:d} X {:d}\n".format(self.nx, self.ny)
+              + " Wave hypervisc     : {:.2e} m^{:d}/s\n".format(
+                    self.waveVisc, int(self.waveViscOrder))
+              + " Mean hypervisc     : {:.2e} m^{:d}/s\n".format(
+                    self.meanVisc, int(self.meanViscOrder))
+              + " Frequency param    : {:.2f}\n".format(self.alpha)
+              + " Comp. threads      : {:d} \n".format(self.nThreads)
         )
+
 
     # Diagnostic-calculating functions  - - - - - - - - - - - - - - - - - - - -
     def _calc_CFL(self): 
@@ -319,11 +320,7 @@ class model(doublyPeriodicModel):
         """ Calculate the total mean energy """
 
         E = np.sum( self.Lx*self.Ly*(self.k**2.0+self.l**2.0)
-<<<<<<< HEAD
                         * np.abs(self.psih)**2.0 )
-=======
-                        * np.abs(self.psih)**2.0)
->>>>>>> refs/remotes/origin/master
 
         return E
 
