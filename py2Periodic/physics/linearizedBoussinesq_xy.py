@@ -138,9 +138,11 @@ class model(doublyPeriodicModel):
         self.RHS[:, :, 1] =  self.f0*vh - self._jk*ph \
                                  - self._jk*self.fft2(U*u) - self._jl*self.fft2(V*u) \
                                  - self.fft2(u*Ux) - self.fft2(v*Uy)
+
         self.RHS[:, :, 2] = -self.f0*uh - self._jl*ph \
                                  - self._jk*self.fft2(U*v) - self._jl*self.fft2(V*v) \
                                  - self.fft2(u*Vx) + self.fft2(v*Ux)
+
         self.RHS[:, :, 3] = -self.cn**2.0 * ( self._jk*uh + self._jl*vh ) \
                                  - self._jk*self.fft2(U*p) - self._jl*self.fft2(V*p)
                                
