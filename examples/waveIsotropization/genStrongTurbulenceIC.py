@@ -27,7 +27,7 @@ params = {
 
 turb = twoDimTurbulence.model(**params)
 
-for i in xrange(10):
+for i in xrange(3):
 
     strongIC = turb.random_energy_spectrum(q0rms=0.18*f0, kPeak=64.0)
     turb.set_q(strongIC)

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import h5py
 
 from ..doublyPeriodic import doublyPeriodicModel
 from numpy import pi 

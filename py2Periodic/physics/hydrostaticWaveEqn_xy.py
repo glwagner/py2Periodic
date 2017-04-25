@@ -270,7 +270,7 @@ class model(doublyPeriodicModel):
         axArr[0].set_xlabel('$x$')
         axArr[1].set_xlabel('$x$')
 
-        message = '$t = {:03d}$ wave periods'.format(
+        message = '$t = {:03.1f}$ wave periods'.format(
             self.t*self.sigma/(2.0*pi))
         titles = ['$q$ ($\mathrm{s^{-1}}$)', '$\sqrt{u^2+v^2}$ (m/s)']
         positions = [axArr[0].get_position(), axArr[1].get_position()]
