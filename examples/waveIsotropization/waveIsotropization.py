@@ -18,6 +18,7 @@ dt = 0.05 * 2.0*pi/f0
 
 # Add new parameters
 params = {
+    'Lx'            : Lx,
     'waveVisc'      : waveVisc,
     'waveViscOrder' : waveViscOrder,
     'f0'          : f0,
@@ -28,11 +29,7 @@ params = {
 }
 
 hwe = hydrostaticWaveEqn_xy.init_from_turb_endpoint(
-        'strongTurbData.hdf5', 'ic_08')
-
-plt.figure('Initial condition'), plt.clf()
-plt.imshow(hwe.q)
-plt.show()
+        'strongTurbData.hdf5', 'ic_08', **params)
 
 stopTime = 256.0*pi/f0
 nSteps = int(np.ceil(stopTime / dt))
