@@ -60,6 +60,7 @@ class model(doublyPeriodicModel):
         self.set_q(q0)
         self.update_state_variables()
         
+
     # Methods - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def describe_physics(self):
         print("""
@@ -74,6 +75,7 @@ class model(doublyPeriodicModel):
             parameter kappa, which is the square root of the eigenvalue \n
             from the vertical mode eigenproblem.
         """)
+
 
     def _init_linear_coeff(self):
         """ Calculate the coefficient that multiplies the linear left hand
@@ -90,6 +92,7 @@ class model(doublyPeriodicModel):
 
         self.linearCoeff[:, :, 3] = -self.waveDiff \
             * (self.k**2.0 + self.l**2.0)**(self.waveDiffOrder/2.0)
+
 
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side of PDE """
@@ -143,6 +146,7 @@ class model(doublyPeriodicModel):
                                
         self._dealias_RHS()
          
+
     def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory in addition to the solution """
 
@@ -173,6 +177,7 @@ class model(doublyPeriodicModel):
         self.Uy = np.zeros(self.physVarShape, np.dtype('float64'))
         self.Vx = np.zeros(self.physVarShape, np.dtype('float64'))
         
+
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
         # Views for clarity:
@@ -193,12 +198,14 @@ class model(doublyPeriodicModel):
         self.U = -self.ifft2(self._jl*self.psih)
         self.V =  self.ifft2(self._jk*self.psih)
 
+
     def set_q(self, q):
         """ Set model vorticity """
 
         self.soln[:, :, 0] = self.fft2(q)
         self._dealias_soln()
         self.update_state_variables()
+
 
     def make_plane_wave(self, kNonDim):
         """ Set linearized Boussinesq to a plane wave in x with speed 1 m/s
@@ -218,6 +225,7 @@ class model(doublyPeriodicModel):
         v = a * kDim*self.f0 * np.sin(kDim*self.x)
 
         return u, v, p
+
 
     def set_uvp(self, u, v, p):
         """ Set linearized Boussinesq variables """
