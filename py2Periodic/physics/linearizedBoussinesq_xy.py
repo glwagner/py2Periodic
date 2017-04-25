@@ -230,7 +230,7 @@ class model(doublyPeriodicModel):
         self.update_state_variables()
 
 
-    def visualize_model_state(self):
+    def visualize_model_state(self, show=False):
         """ Visualize the model state """
 
         self.update_state_variables() 
@@ -254,7 +254,13 @@ class model(doublyPeriodicModel):
         axArr[0].set_xlabel('$x$', labelpad=5.0)
         axArr[1].set_xlabel('$x$', labelpad=5.0)
 
-        plt.pause(0.01)
+        if show:
+            plt.pause(0.01)
+        else:
+            plt.savefig('{}/{}_{:09d}'.format(
+                self.plotDirectory, self.runName, self.step))
+            plt.close(fig)
+
 
 
     def describe_model(self):
@@ -272,7 +278,7 @@ class model(doublyPeriodicModel):
 
 
 # External helper functions - - - - - - - - - - - - - - - - - - - - - - - - - - 
-def init_from_turb_endpoint(fileName, runName, **kwargs):
+def init_from_turb_endpoint(fileName, runName, **additionalParams):
     """ Initialize a hydrostatic wave eqn model from the saved endpoint of a 
         twoDimTurbulence run. """
             
@@ -294,14 +300,10 @@ def init_from_turb_endpoint(fileName, runName, **kwargs):
     inputParams['timeStepper'] = 'RK4'
 
     # Re-initialize model with input params, if any are given
-    print(kwargs)
-    if kwargs is not None:
-        inputParams.update(kwargs)
-
+    inputParams.update(additionalParams)
     m = model(**inputParams)
 
     # Initialize turbulence field
     m.set_q(dataFile[runName]['endpoint']['q'][:])
 
     return m
-
