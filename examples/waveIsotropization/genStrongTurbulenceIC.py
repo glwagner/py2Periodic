@@ -21,7 +21,7 @@ params = {
     'visc' : 3e8,
     'viscOrder' : 4.0,
     'timeStepper' : 'RK4',
-    'nThreads' : 2,
+    'nThreads' : 8,
     'name' : 'strongTurbData'
 }
 
@@ -32,8 +32,9 @@ for i in xrange(10):
     strongIC = turb.random_energy_spectrum(q0rms=0.18*f0, kPeak=64.0)
     turb.set_q(strongIC)
 
-    turb.run(nSteps=np.ceil(stopTime/dt), nLogs=10,
-        runName='ic_{:02d}'.format(i), saveEndpoint=True)
+    turb.run(nSteps=np.ceil(stopTime/dt), nLogs=10, 
+        runName='ic_{:02d}'.format(i), 
+        saveEndpoint=True, saveEndpointVars='q')
 
     turb.update_state_variables()
     maxRo = np.abs(turb.q).max() / f0

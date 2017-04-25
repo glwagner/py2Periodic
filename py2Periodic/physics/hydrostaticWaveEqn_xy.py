@@ -252,7 +252,7 @@ class model(doublyPeriodicModel):
         self.update_state_variables()
 
 
-    def visualize_model_state(self):
+    def visualize_model_state(self, show=False):
         """ Visualize the model state """
 
         self.update_state_variables() 
@@ -280,8 +280,12 @@ class model(doublyPeriodicModel):
         plt.text(1.00, 1.03, titles[1], transform=axArr[1].transAxes,
             HorizontalAlignment='right') 
         
-        plt.savefig('{}/{}_{:09d}'.format(
-            self.plotDirectory, self.runName, self.step))
+        if show:
+            plt.pause(0.01)
+        else:
+            plt.savefig('{}/{}_{:09d}'.format(
+                self.plotDirectory, self.runName, self.step))
+            plt.close(fig)
 
     
     def describe_model(self):
@@ -315,7 +319,11 @@ class model(doublyPeriodicModel):
         """ Calculate the total mean energy """
 
         E = np.sum( self.Lx*self.Ly*(self.k**2.0+self.l**2.0)
+<<<<<<< HEAD
                         * np.abs(self.psih)**2.0 )
+=======
+                        * np.abs(self.psih)**2.0)
+>>>>>>> refs/remotes/origin/master
 
         return E
 
@@ -342,11 +350,8 @@ def init_from_turb_endpoint(fileName, runName, **kwargs):
     # Change default time-stepper
     inputParams['timeStepper'] = 'ETDRK4'
 
-    # Re-initialize model with input params, if any are given
-    print(kwargs)
-    if kwargs is not None:
-        inputParams.update(kwargs)
-
+    # Re-initialize model, overwriting 2D turb params with keyword args.
+    inputParams.update(kwargs)
     m = model(**inputParams)
 
     # Initialize turbulence field
