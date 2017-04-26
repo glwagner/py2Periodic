@@ -257,23 +257,29 @@ class model(doublyPeriodicModel):
 
         self.update_state_variables() 
 
-        # Initialize plot
-        fig, axArr = plt.subplots(ncols=2, figsize=(8, 4), 
-            sharex=True, sharey=True)
+        # Plot in kilometers
+        h = 1e-3
+        (qMax, c) = (np.max(np.abs(self.q)), 0.8)
+        (cmin, cmax) = (-c*qMax, c*qMax)
+
+        fig, axArr = plt.subplots(ncols=2, figsize=(8, 4), sharex=True, sharey=True)
         fig.canvas.set_window_title("Waves and flow")
 
-        axArr[0].pcolormesh(1e-3*self.x, 1e-3*self.y, self.q)
-        axArr[1].pcolormesh(1e-3*self.x, 1e-3*self.y,   
+        axArr[0].pcolormesh(h*self.x, h*self.y, self.q, cmap='RdBu_r', 
+            vmin=cmin, vmax=cmax)
+
+        axArr[1].pcolormesh(h*self.x, h*self.y, 
             np.sqrt(self.u**2.0+self.v**2.0))
 
-        axArr[0].set_ylabel('$y$')
-        axArr[0].set_xlabel('$x$')
-        axArr[1].set_xlabel('$x$')
+        axArr[0].set_ylabel('$y$', labelpad=12.0)
+
+        axArr[0].set_xlabel('$x$', labelpad=5.0)
+        axArr[1].set_xlabel('$x$', labelpad=5.0)
 
         message = '$t = {:03.1f}$ wave periods'.format(
             self.t*self.sigma/(2.0*pi))
         titles = ['$q$ ($\mathrm{s^{-1}}$)', '$\sqrt{u^2+v^2}$ (m/s)']
-        positions = [axArr[0].get_position(), axArr[1].get_position()]
+        #positions = [axArr[0].get_position(), axArr[1].get_position()]
 
         plt.text(0.00, 1.03, message, transform=axArr[0].transAxes) 
         plt.text(1.00, 1.03, titles[0], transform=axArr[0].transAxes,

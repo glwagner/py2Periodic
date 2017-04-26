@@ -14,25 +14,28 @@ Lx = 1600e3
 sigma = f0*np.sqrt(1+alpha)
 kappa = 32.0*pi / (Lx*np.sqrt(alpha))
 
-dt = 0.05 * 2.0*pi/f0
+dt = 0.05 * 2.0*pi/sigma
 (waveVisc, waveViscOrder) = (1e24, 8.0)
 
-stopTime = 256.0*pi/f0
+stopTime = 256.0*pi/sigma
 nSteps = int(np.ceil(stopTime / dt))
 
 saveTimes = np.array([0, 2, 4, 32, 128])*2.0*pi/sigma
 
+fileName = 'strongTurbData.hdf5'
+runName = 'ic_06'
+
 # Generate param dictionaries, initialize models, and run.
 hweParams = {
-    'Lx'            : Lx,
-    'waveVisc'      : waveVisc,
-    'waveViscOrder' : waveViscOrder,
-    'f0'          : f0,
-    'sigma'       : sigma,
-    'kappa'       : kappa, 
-    'dt'          : dt, 
-    'timeStepper' : 'ETDRK4', 
-    'name'        : 'waveIsotropization',
+    'Lx'           : Lx,
+    'waveVisc'     : waveVisc,
+    'waveViscOrder': waveViscOrder,
+    'f0'           : f0,
+    'sigma'        : sigma,
+    'kappa'        : kappa, 
+    'dt'           : dt, 
+    'timeStepper'  : 'ETDRK4', 
+    'name'         : 'waveIsotropization',
 }
 
 lhbParams = {
@@ -44,14 +47,11 @@ lhbParams = {
     'name'        : 'waveIsotropization',
 }
 
-hweItems = {'q': saveTimes, 'A': saveTimes}
-lhbItems = {'q': saveTimes, 'u': saveTimes, 'v': saveTimes, 'p': saveTimes}
+hweItems = {'soln': saveTimes, 'q': saveTimes, 'A': saveTimes}
+lhbItems = {'soln': saveTimes, 'q': saveTimes, 'u': saveTimes, 'v': saveTimes, 'p': saveTimes}
 
-hwe = hydrostaticWaveEqn_xy.init_from_turb_endpoint(
-        'strongTurbData.hdf5', 'ic_01', **hweParams)
+hwe = hydrostaticWaveEqn_xy.init_from_turb_endpoint(fileName, runName, **hweParams)
+lhb = linearizedBoussinesq_xy.init_from_turb_endpoint(fileName, runName, **lhbParams)
 
-lhb = linearizedBoussinesq_xy.init_from_turb_endpoint(
-        'strongTurbData.hdf5', 'ic_01', **lhbParams)
-
-hwe.run(nSteps=nSteps, nPlots=128, nLogs=128, runName='hwe', itemsToSave=hweItems)
-lhb.run(nSteps=nSteps, nPlots=128, nLogs=128, runName='lhb', itemsToSave=lhbItems)
+hwe.run(nSteps=nSteps, nLogs=64, runName='hwe', itemsToSave=hweItems)
+lhb.run(nSteps=nSteps, nLogs=64, runName='lhb', itemsToSave=lhbItems)
