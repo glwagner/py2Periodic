@@ -15,7 +15,7 @@ stopTime = 200.0*2.0*pi/f0
 itemsToSave = {'q' : stopTime}
 
 params = {
-    'nx' : 256,
+    'nx' : 384,
     'Lx' : Lx,
     'dt' : dt,
     'visc' : 3e8,
@@ -32,7 +32,7 @@ for i in xrange(3):
     strongIC = turb.random_energy_spectrum(q0rms=0.18*f0, kPeak=64.0)
     turb.set_q(strongIC)
 
-    turb.run(nSteps=np.ceil(stopTime/dt), nLogs=10, 
+    turb.run(nSteps=np.ceil(stopTime/dt), logInterval=100, 
         runName='ic_{:02d}'.format(i), 
         saveEndpoint=True, saveEndpointVars='q')
 

@@ -23,7 +23,7 @@ nSteps = int(np.ceil(stopTime / dt))
 saveTimes = np.array([0, 2, 4, 32, 128])*2.0*pi/sigma
 
 fileName = 'strongTurbData.hdf5'
-runName = 'ic_06'
+runName = 'ic_02'
 
 # Generate param dictionaries, initialize models, and run.
 hweParams = {
@@ -53,5 +53,5 @@ lhbItems = {'soln': saveTimes, 'q': saveTimes, 'u': saveTimes, 'v': saveTimes, '
 hwe = hydrostaticWaveEqn_xy.init_from_turb_endpoint(fileName, runName, **hweParams)
 lhb = linearizedBoussinesq_xy.init_from_turb_endpoint(fileName, runName, **lhbParams)
 
-hwe.run(nSteps=nSteps, nLogs=64, runName='hwe', itemsToSave=hweItems)
-lhb.run(nSteps=nSteps, nLogs=64, runName='lhb', itemsToSave=lhbItems)
+hwe.run(nSteps=nSteps, logInterval=100, runName='hwe', itemsToSave=hweItems)
+lhb.run(nSteps=nSteps, logInterval=100, runName='lhb', itemsToSave=lhbItems)
