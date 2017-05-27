@@ -10,8 +10,8 @@ from numpy import pi
 
 nSteps = 2e2
 
-for nx in [128, 256, 512, 1024, 2048]:
-    for nThreads in [1, 8]:
+for nx in [128, 256, 512, 1024]:
+    for nThreads in [2]:
 
         print(  "Initializing and solving models with "
                 "nThreads = {:d} and nx = {:d}".format(nThreads, nx))
@@ -42,7 +42,7 @@ for nx in [128, 256, 512, 1024, 2048]:
 
 
         print("Without numexpr: {:.3e} secs".format(time0))
-        print("With numexpr: {:.3e} secs\n".format(time_ne))
+        print("With numexpr:    {:.3e} secs\n".format(time_ne))
 
 
 
