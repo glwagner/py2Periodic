@@ -147,6 +147,7 @@ class doublyPeriodicModel(object):
         pyfftw.interfaces.cache.enable() 
         effort = 'FFTW_MEASURE'
 
+        # Interface functions
         if self.realVars:
             self.fft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.rfft2(x, threads=self.nThreads, \
@@ -161,6 +162,8 @@ class doublyPeriodicModel(object):
             self.ifft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.ifft2(x, threads=self.nThreads, \
                             planner_effort=effort))
+
+        # Fast FFTW objects
 
 
     

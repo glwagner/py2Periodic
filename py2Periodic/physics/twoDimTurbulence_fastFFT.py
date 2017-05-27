@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from ..doublyPeriodic import doublyPeriodicModel
 from numpy import pi 
 
+
 class model(doublyPeriodicModel):
     def __init__(self, name = None,
             # Grid parameters
@@ -72,13 +73,13 @@ class model(doublyPeriodicModel):
 
         # Views required for numexpr
         qh   = soln[:, :, 0]
-        Uh   = self.Uh
-        Uqh  = self.Uqh
         psih = self.psih
         
-        u  = self.u
         q  = self.q
+        U  = self.u
         Uq = self.Uq
+        Uh   = self.Uh
+        Uqh  = self.Uqh
 
         oneOverKay2 = self.__oneOverKay2
         jl = self.__jl
@@ -87,21 +88,24 @@ class model(doublyPeriodicModel):
         RHS0 = self.RHS[:, :, 0]
 
         # Transform of streamfunction and physical vorticity and velocity
-        q = self.ifft2(qh)
         ne.evaluate("-qh*oneOverKay2", out=psih)
 
+        # Advection term u*q
+        q = self.ifft2(qh)
+
         ne.evaluate("-psih*jl", out=Uh)
-        u = self.ifft2(Uh)
-
-        ne.evaluate("psih*jk", out=Uh)
-        v = self.ifft2(Uh)
-
-        ne.evaluate("u*q", out=Uq)
+        U = self.ifft2(Uh)
+        ne.evaluate("U*q", out=Uq)
         Uqh = self.fft2(Uq)
+
         ne.evaluate("-Uqh*jk", out=RHS0)
 
-        ne.evaluate("v*q", out=Uq)
+        # Advection term v*q
+        ne.evaluate("psih*jk", out=Uh)
+        U = self.ifft2(Uh)
+        ne.evaluate("U*q", out=Uq)
         Uqh = self.fft2(Uq)
+
         ne.evaluate("RHS0-Uqh*jl", out=RHS0)
 
         self._dealias_RHS()
@@ -120,12 +124,27 @@ class model(doublyPeriodicModel):
 
         # Transformed streamfunction and physical vorticity and velocity
         self.psih = np.zeros(self.specVarShape, np.dtype('complex128'))
-        self.Uh   = np.zeros(self.specVarShape, np.dtype('complex128'))
-        self.Uqh  = np.zeros(self.specVarShape, np.dtype('complex128'))
-        self.q    = np.zeros(self.physVarShape, np.dtype('float64'))
         self.u    = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v    = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        # Variables used in transforms.
+        self.q    = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.U    = np.zeros(self.physVarShape, np.dtype('float64'))
         self.Uq   = np.zeros(self.physVarShape, np.dtype('float64'))
+
+        self.Uh   = np.zeros(self.specVarShape, np.dtype('complex128'))
+        self.Uqh  = np.zeros(self.specVarShape, np.dtype('complex128'))
+
+        # Dictionaries of forward and inverse transforms. 
+        # The dictionary key is the output and its value is the input.
+        self.forwardTransforms = {
+            'Uqh': 'Uq'
+        }
+
+        self.inverseTransforms = {
+            'q'  : 'qh',
+            'U'  : 'Uh'
+        }
             
 
     def update_state_variables(self):
