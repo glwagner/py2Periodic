@@ -70,32 +70,42 @@ class model(doublyPeriodicModel):
     def _calc_right_hand_side(self, soln, t):
         """ Calculate the nonlinear right hand side """
 
-        qh = soln[:, :, 0]
+        # Views required for numexpr
+        qh   = soln[:, :, 0]
+        Uh   = self.Uh
+        Uqh  = self.Uqh
+        psih = self.psih
+        
+        u  = self.u
+        q  = self.q
+        Uq = self.Uq
+
+        oneOverKay2 = self.__oneOverKay2
+        jl = self.__jl
+        jk = self.__jk
+
+        RHS0 = self.RHS[:, :, 0]
 
         # Transform of streamfunction and physical vorticity and velocity
-        #self.psih = - qh * self.__oneOverKay2
-        self.q = self.ifft2(qh)
-        ne.evaluate("-qh*self.__oneOverKay2", out=self.psih)
-        ne.evaluate("self.__jl*self.psih", out=self.uh)
-        ne.evaluate("-self.__jk*self.psih", out=self.vh)
+        q = self.ifft2(qh)
+        ne.evaluate("-qh*oneOverKay2", out=psih)
 
-        self.u = self.ifft2(self.uh)
-        self.v = self.ifft2(self.vh)
+        ne.evaluate("-psih*jl", out=Uh)
+        u = self.ifft2(self.Uh)
 
-        ne.evaluate("self.u*self.q", out=self.Uq)
-        self.Uq = self.fft2(self.Uq)
-        ne.evaluate("-self.__jk*self.Uq", out=self.RHS[:, :, 0])
+        ne.evaluate("psih*jk", out=Uh)
+        v = self.ifft2(self.Uh)
 
-        ne.evaluate("self.v*self.q", out=self.Uq)
-        self.Uq = self.fft2(self.Uq)
-        ne.evaluate("self.RHS[:, :, 0] - self.__jl*self.Uq", out=self.RHS[:, :, 0])
+        ne.evaluate("u*q", out=Uq)
+        Uqh = self.fft2(Uq)
+        ne.evaluate("-Uqh*jk", out=RHS0)
 
-        #self.RHS[:, :, 0] = self.fft2(self.uq)
-        #self.RHS[:, :, 0] *= -self.__jk
-        #self.RHS[:, :, 0] -= self.__jl*self.fft2(self.v*self.q) 
+        ne.evaluate("v*q", out=Uq)
+        Uqh = self.fft2(Uq)
+        ne.evaluate("RHS0-Uqh*jl", out=RHS0)
 
         self._dealias_RHS()
-    
+
 
     def _init_problem_parameters(self):
         """ Pre-allocate parameters in memory """
@@ -109,15 +119,13 @@ class model(doublyPeriodicModel):
         self.__oneOverKay2 = 1.0 / self.__divideSafeKay2
 
         # Transformed streamfunction and physical vorticity and velocity
-        self.psih = np.zeros(self.physVarShape, np.dtype('complex128'))
-        self.q = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.u = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.v = np.zeros(self.physVarShape, np.dtype('float64'))
-
-        # Intermediate variables
-        self.uh = np.zeros(self.physVarShape, np.dtype('complex128'))
-        self.vh = np.zeros(self.physVarShape, np.dtype('complex128'))
-        self.Uq = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.psih = np.zeros(self.specVarShape, np.dtype('complex128'))
+        self.Uh   = np.zeros(self.specVarShape, np.dtype('complex128'))
+        self.Uqh  = np.zeros(self.specVarShape, np.dtype('complex128'))
+        self.q    = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.u    = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.v    = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.Uq   = np.zeros(self.physVarShape, np.dtype('float64'))
             
 
     def update_state_variables(self):

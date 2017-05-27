@@ -1,6 +1,7 @@
 from __future__ import division
 import os, sys, time as timeTools
 import numpy as np
+import numexpr as ne
 import mkl, pyfftw, h5py
 
 from py2Periodic import timeStepping
@@ -59,6 +60,7 @@ class doublyPeriodicModel(object):
 
         np.use_fastnumpy = True
         mkl.set_num_threads(self.nThreads)
+        ne.set_num_threads(self.nThreads)
 
         # Initialization routines defined in doublyPeriodic Base Class 
         self._init_numerical_parameters()
@@ -169,7 +171,9 @@ class doublyPeriodicModel(object):
         if not hasattr(self, 'timer'): self.timer = timeTools.time()
 
         for runStep in xrange(int(nSteps)):
+
             self._step_forward()
+
             if (runStep+1) % dnLog == 0.0:
                 self._print_status()
 

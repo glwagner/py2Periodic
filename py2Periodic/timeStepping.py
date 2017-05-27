@@ -1,8 +1,8 @@
 import numpy as np 
+import numexpr as ne 
 from numpy import pi
 
 # Time steppers for the doublyPeriodicModel class
-# TODO: perform the refactoring that Keaton recommends.
 
 class methods(object):
 
@@ -28,13 +28,14 @@ class methods(object):
             m.step += 1
 
 
-    class RK4(object):
+    class RK4_ne(object):
         """ RK4 is the classical explicit 4th-order Runge-Kutta time-stepping
             method. It uses a series of substeps/estimators to achieve 4th-order
             accuracy over each individual time-step, at the cost of requiring
             relatively more evaluations of the nonlinear right hand side.
             It is described, among other places, in Bewley's Numerical
             Renaissance. """
+
 
         def __init__(self, model):
 
@@ -48,43 +49,111 @@ class methods(object):
             self.RHS2 = np.zeros(model.specSolnShape, np.dtype('complex128'))
             self.RHS3 = np.zeros(model.specSolnShape, np.dtype('complex128'))
 
-        def step_forward(self, dt=None):
+
+        def step_forward(self):
             """ Step the solution forward in time """
 
+            # Set up views for numexpr
             m = self.model
 
-            if dt is None: dt=m.dt
+            RHS         = m.RHS
+            linearCoeff = m.linearCoeff
+            soln        = m.soln
+            dt          = m.dt
+            dt2         = m.dt/2.0
+
+            RHS1  = self.RHS1
+            RHS2  = self.RHS2
+            RHS3  = self.RHS3
+            soln1 = self.soln1
+
+
+            # Substep 1
+            m._calc_right_hand_side(soln, m.t)
+            ne.evaluate("RHS + linearCoeff*soln", out=RHS1)
+
+            # Substep 2
+            t1 = m.t + dt2
+
+            ne.evaluate("soln + dt2*RHS1", out=soln1)
+            m._calc_right_hand_side(soln1, t1) 
+            ne.evaluate("RHS + linearCoeff*soln1", out=RHS2)
+
+            # Substep 3
+            ne.evaluate("soln + dt2*RHS2", out=soln1)
+            m._calc_right_hand_side(soln1, t1) 
+            ne.evaluate("RHS + linearCoeff*soln1", out=RHS3)
+
+            # Substep 4
+            t1 = m.t + dt
+
+            ne.evaluate("soln + dt*RHS3", out=soln1)
+            m._calc_right_hand_side(soln1, t1) 
+            ne.evaluate("RHS + linearCoeff*soln1", out=RHS)
+
+            ne.evaluate("soln + dt*(RHS1/6.0 + RHS2/3.0 + RHS3/3.0 + RHS/6.0)", out=soln)
+            m.t += m.dt
+            m.step += 1
+
+
+    class RK4(object):
+        """ RK4 is the classical explicit 4th-order Runge-Kutta time-stepping
+            method. It uses a series of substeps/estimators to achieve 4th-order
+            accuracy over each individual time-step, at the cost of requiring
+            relatively more evaluations of the nonlinear right hand side.
+            It is described, among other places, in Bewley's Numerical
+            Renaissance. """
+
+
+        def __init__(self, model):
+
+            self.model = model
+
+            # Allocate intermediate solution variable
+            self.soln1 = np.zeros(model.specSolnShape, np.dtype('complex128'))
+
+            # Allocate nonlinear terms
+            self.RHS1 = np.zeros(model.specSolnShape, np.dtype('complex128'))
+            self.RHS2 = np.zeros(model.specSolnShape, np.dtype('complex128'))
+            self.RHS3 = np.zeros(model.specSolnShape, np.dtype('complex128'))
+
+
+        def step_forward(self):
+            """ Step the solution forward in time """
+
+            # Set up views for numexpr
+            m = self.model
 
             # Substep 1
             m._calc_right_hand_side(m.soln, m.t)
             self.RHS1 = m.RHS + m.linearCoeff*m.soln
 
             # Substep 2
-            t1 = m.t + dt/2.0
-            self.soln1 = m.soln + dt/2.0*self.RHS1
+            t1 = m.t + m.dt/2.0
+            self.soln1 = m.soln + m.dt/2.0*self.RHS1
 
             m._calc_right_hand_side(self.soln1, t1) 
             self.RHS2 = m.RHS + m.linearCoeff*self.soln1
 
             # Substep 3
-            self.soln1 = m.soln + dt/2.0*self.RHS2
+            self.soln1 = m.soln + m.dt/2.0*self.RHS2
 
             m._calc_right_hand_side(self.soln1, t1) 
             self.RHS3 = m.RHS + m.linearCoeff*self.soln1
 
             # Substep 4
-            t1 = m.t + dt
-            self.soln1 = m.soln + dt*self.RHS3
+            t1 = m.t + m.dt
+            self.soln1 = m.soln + m.dt*self.RHS3
 
             m._calc_right_hand_side(self.soln1, t1) 
             m.RHS += m.linearCoeff*self.soln1
 
             # Final step
-            m.soln += dt*(   
+            m.soln += m.dt*(   
                 1.0/6.0*self.RHS1 + 1.0/3.0*self.RHS2
               + 1.0/3.0*self.RHS3 + 1.0/6.0*m.RHS
             )
-            m.t += dt
+            m.t += m.dt
             m.step += 1
 
 
