@@ -62,13 +62,10 @@ class doublyPeriodicModel(object):
         mkl.set_num_threads(self.nThreads)
         ne.set_num_threads(self.nThreads)
 
-        # Initialization routines defined in doublyPeriodic Base Class 
-        self._init_numerical_parameters()
-        self._init_fft()
-
-        # Initialization routines defined in the physical problem's subclass
-        self._init_problem_parameters()
-        self._init_linear_coeff()
+        self._init_numerical_parameters()       # defined in doublyPeriodic
+        self._init_problem_parameters()         # defined in Physical Problem
+        self._init_fft()                        # defined in doublyPeriodic
+        self._init_linear_coeff()               # defined in Physical Problem
 
         # Initialize the time-stepper
         self._timeStepper = getattr(timeStepping.methods, self.timeStepper)(self)
@@ -147,15 +144,44 @@ class doublyPeriodicModel(object):
         pyfftw.interfaces.cache.enable() 
         effort = 'FFTW_MEASURE'
 
-        # Interface functions
+        # Transform type depends on whether soln vars are real or imaginary.
         if self.realVars:
+
+            # Bind numpy-type transforms
             self.fft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.rfft2(x, threads=self.nThreads, \
                             planner_effort=effort))
             self.ifft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.irfft2(x, threads=self.nThreads, \
                             planner_effort=effort))
+
+            # Build transform objects
+            if hasattr(self, 'forwardTransforms'):
+                for var in self.forwardTransforms:
+                    setattr(self, 'fft2_'+var, pyfftw.builders.rfft2(
+                        getattr(self, var), planner_effort=effort, 
+                        threads=self.nThreads))
+                    
+                    # Ensure that input array is contiguous and byte-aligned.
+                    setattr(self, var, np.ascontiguousarray(
+                        getattr(self, var)))
+                    pyfftw.byte_align(getattr(self, var))
+
+            if hasattr(self, 'inverseTransforms'):
+                for var in self.inverseTransforms:
+                    setattr(self, 'ifft2_'+var, pyfftw.builders.irfft2(
+                        getattr(self, var), planner_effort=effort, 
+                        threads=self.nThreads))
+
+                    # Ensure that input array is contiguous and byte-aligned.
+                    setattr(self, var, np.ascontiguousarray(
+                        getattr(self, var)))
+                    pyfftw.byte_align(getattr(self, var))
+
+
         else:
+
+            # Bind numpy-type transforms
             self.fft2 = (lambda x:
                     pyfftw.interfaces.numpy_fft.fft2(x, threads=self.nThreads, \
                             planner_effort=effort))
@@ -163,11 +189,33 @@ class doublyPeriodicModel(object):
                     pyfftw.interfaces.numpy_fft.ifft2(x, threads=self.nThreads, \
                             planner_effort=effort))
 
-        # Fast FFTW objects
+            # Build transform objects
+            if hasattr(self, 'forwardTransforms'):
+                for var in self.forwardTransforms:
+                    setattr(self, 'fft2_'+var, pyfftw.builders.fft2(
+                        getattr(self, var), planner_effort=effort, 
+                        threads=self.nThreads))
+
+                    # Ensure that input array is contiguous and byte-aligned.
+                    setattr(self, var, np.ascontiguousarray(
+                        getattr(self, var)))
+                    pyfftw.byte_align(getattr(self, var))
+
+
+            if hasattr(self, 'inverseTransforms'):
+                for var in self.inverseTransforms:
+                    setattr(self, 'ifft2_'+var, pyfftw.builders.ifft2(
+                        getattr(self, var), planner_effort=effort, 
+                        threads=self.nThreads))
+
+                    # Ensure that input array is contiguous and byte-aligned.
+                    setattr(self, var, np.ascontiguousarray(
+                        getattr(self, var)))
+                    pyfftw.byte_align(getattr(self, var))
 
 
     
-    # User inteaction - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+    # User interaction  - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
     def step_nSteps(self, nSteps=1e2, dnLog=float('inf')):
         """ Simply step forward nStep times. In some respect
             this is a legacy function """

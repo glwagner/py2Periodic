@@ -3,7 +3,7 @@ import numexpr as ne
 import time as timeTools
 import matplotlib.pyplot as plt
 
-from ..doublyPeriodic import doublyPeriodicModel
+from ..doublyPeriodic_fastFFT import doublyPeriodicModel
 from numpy import pi 
 
 
@@ -72,7 +72,7 @@ class model(doublyPeriodicModel):
         """ Calculate the nonlinear right hand side """
 
         # Views required for numexpr
-        qh   = soln[:, :, 0]
+        qh   = self.qh
         psih = self.psih
         
         q  = self.q
@@ -91,20 +91,20 @@ class model(doublyPeriodicModel):
         ne.evaluate("-qh*oneOverKay2", out=psih)
 
         # Advection term u*q
-        q = self.ifft2(qh)
+        q = self.ifft2_qh()
 
         ne.evaluate("-psih*jl", out=Uh)
-        U = self.ifft2(Uh)
+        U = self.ifft2_Uh()
         ne.evaluate("U*q", out=Uq)
-        Uqh = self.fft2(Uq)
+        Uqh = self.fft2_Uq()
 
         ne.evaluate("-Uqh*jk", out=RHS0)
 
         # Advection term v*q
         ne.evaluate("psih*jk", out=Uh)
-        U = self.ifft2(Uh)
+        U = self.ifft2_Uh()
         ne.evaluate("U*q", out=Uq)
-        Uqh = self.fft2(Uq)
+        Uqh = self.fft2_Uq()
 
         ne.evaluate("RHS0-Uqh*jl", out=RHS0)
 
@@ -126,26 +126,19 @@ class model(doublyPeriodicModel):
         self.psih = np.zeros(self.specVarShape, np.dtype('complex128'))
         self.u    = np.zeros(self.physVarShape, np.dtype('float64'))
         self.v    = np.zeros(self.physVarShape, np.dtype('float64'))
-
-        # Variables used in transforms.
         self.q    = np.zeros(self.physVarShape, np.dtype('float64'))
         self.U    = np.zeros(self.physVarShape, np.dtype('float64'))
-        self.Uq   = np.zeros(self.physVarShape, np.dtype('float64'))
-
-        self.Uh   = np.zeros(self.specVarShape, np.dtype('complex128'))
         self.Uqh  = np.zeros(self.specVarShape, np.dtype('complex128'))
+
+        # Variables used in transforms.
+        self.qh   = self.soln[:, :, 0]
+        self.Uq   = np.zeros(self.physVarShape, np.dtype('float64'))
+        self.Uh   = np.zeros(self.specVarShape, np.dtype('complex128'))
 
         # Dictionaries of forward and inverse transforms. 
         # The dictionary key is the output and its value is the input.
-        self.forwardTransforms = {
-            'Uqh': 'Uq'
-        }
-
-        self.inverseTransforms = {
-            'q'  : 'qh',
-            'U'  : 'Uh'
-        }
-            
+        self.forwardTransforms = ['Uq']
+        self.inverseTransforms = ['qh', 'Uh']
 
     def update_state_variables(self):
         """ Update diagnostic variables to current model state """
