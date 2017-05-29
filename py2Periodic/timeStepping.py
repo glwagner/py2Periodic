@@ -14,15 +14,39 @@ class methods(object):
         def __init__(self, model):
             self.model = model
 
-        def step_forward(self, dt=None):
+        def step_forward(self):
             """ Step the solution forward in time """
 
             m = self.model
 
-            if dt is None: dt=m.dt
+            m._calc_right_hand_side(m.soln, m.t)
+            m.soln += m.dt*(m.RHS + m.linearCoeff*m.soln)
+
+            m.t += m.dt
+            m.step += 1
+
+
+    class forwardEuler_ne(object):
+        """ The forward Euler time-stepping method is a simple 1st-order 
+            explicit method with poor stability characteristics. It is
+            described, among other places, in Bewley's Numerical Renaissance. """
+
+        def __init__(self, model):
+            self.model = model
+
+        def step_forward(self):
+            """ Step the solution forward in time """
+
+            # Set up views for numexpr
+            m = self.model
+
+            dt = m.dt
+            RHS = m.RHS
+            soln = m.soln
+            linearCoeff = m.linearCoeff
 
             m._calc_right_hand_side(m.soln, m.t)
-            m.soln += dt*(m.RHS + m.linearCoeff*m.soln)
+            ne.evaluate("soln + dt*(RHS+linearCoeff*soln)", out=soln)
 
             m.t += dt
             m.step += 1
@@ -91,7 +115,8 @@ class methods(object):
             m._calc_right_hand_side(soln1, t1) 
             ne.evaluate("RHS + linearCoeff*soln1", out=RHS)
 
-            ne.evaluate("soln + dt*(RHS1/6.0 + RHS2/3.0 + RHS3/3.0 + RHS/6.0)", out=soln)
+            ne.evaluate("soln + dt*(RHS1/6.0 + RHS2/3.0 + RHS3/3.0 + RHS/6.0)", 
+                out=soln)
             m.t += m.dt
             m.step += 1
 
