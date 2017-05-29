@@ -69,13 +69,11 @@ class doublyPeriodicModel(object):
         mkl.set_num_threads(self.nThreads)
         ne.set_num_threads(self.nThreads)
 
-        # Initialization routines defined in doublyPeriodic Base Class 
-        self._init_numerical_parameters()
-        self._init_fft()
-
-        # Initialization routines defined in the physical problem's subclass
-        self._init_problem_parameters()
-        self._init_linear_coeff()
+        # Initialization routines
+        self._init_numerical_parameters()   # Defined in doublyPeriodic class
+        self._init_problem_parameters()     # Defined in Physical Problem subclass
+        self._init_linear_coeff()           # Defined in Physical Problem subclass
+        self._init_fft()                    # Defined in doublyPeriodic class
 
         # Initialize the time-stepper
         self._timeStepper = getattr(timeStepping.methods, self.timeStepper)(self)

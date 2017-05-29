@@ -6,7 +6,7 @@ import time
 sys.path.append('../../')
 from py2Periodic.physics import twoDimTurbulence
 from py2Periodic.physics import twoDimTurbulence_ne
-from py2Periodic.physics import twoDimTurbulence_buildEx
+from py2Periodic.physics import twoDimTurbulence_fftbuildEx
 from numpy import pi
 
 nSteps = 2e2
@@ -32,7 +32,6 @@ for nx in [128, 256, 512, 1024]:
         turb.set_q(q0)
         turb_ne.set_q(q0)
         turb_fft.set_q(q0)
-        turb_mklfft.set_q(q0)
 
         # Time model *without* numexpr
         start0 = time.time()
