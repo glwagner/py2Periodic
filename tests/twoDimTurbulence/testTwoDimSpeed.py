@@ -7,6 +7,7 @@ sys.path.append('../../')
 from py2Periodic.physics import twoDimTurbulence
 from py2Periodic.physics import twoDimTurbulence_ne
 from py2Periodic.physics import twoDimTurbulence_fastFFT
+from py2Periodic.physics import twoDimTurbulence_mklfft
 from numpy import pi
 
 nSteps = 2e2
@@ -27,11 +28,15 @@ for nx in [128, 256, 512, 1024]:
         turb_fft = twoDimTurbulence_fastFFT.model(
                 nThreads=nThreads, nx=nx, timeStepper='RK4_ne')
 
+        turb_mklfft = twoDimTurbulence_mklfft.model(
+                nThreads=nThreads, nx=nx, timeStepper='RK4_ne')
+
         # Set an initial random vorticity field.
         q0 = np.random.standard_normal((turb.ny, turb.nx))
         turb.set_q(q0)
         turb_ne.set_q(q0)
         turb_fft.set_q(q0)
+        turb_mklfft.set_q(q0)
 
         # Time model *without* numexpr
         start0 = time.time()
@@ -48,10 +53,19 @@ for nx in [128, 256, 512, 1024]:
         turb_fft.step_nSteps(nSteps=nSteps)
         time_fft = time.time() - start_fft
 
+        # Time model *with* numexpr
+        start_mklfft = time.time()
+        turb_mklfft.step_nSteps(nSteps=nSteps)
+        time_mklfft = time.time() - start_mklfft
 
-        print("Without numexpr:                 {:.3e} secs".format(time0))
-        print("With numexpr:                    {:.3e} secs\n".format(time_ne))
-        print("With numexpr and faster ffts:    {:.3e} secs\n".format(time_fft))
+
+        print("\n")
+        print("Base:                 {:.3e} secs".format(time0))
+        print("Numexpr:              {:.3e} secs".format(time_ne))
+        print("Numexpr and builders: {:.3e} secs".format(time_fft))
+        print("Numexpr and mklfft:   {:.3e} secs".format(time_mklfft))
+        print("\n")
+
 
 
 
