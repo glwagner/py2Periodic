@@ -151,6 +151,8 @@ class doublyPeriodicModel(object):
     def _init_fft(self):
         """ Initialize fast Fourier transform routines. """
 
+        fftwEffort = 'FFTW_MEASURE'
+
         if usingMKLFFT:
             if self.realVars:
                 self.fft2  = mklfft.rfft2
@@ -160,52 +162,44 @@ class doublyPeriodicModel(object):
                 self.ifft2 = mklfft.ifft2
         else:
             pyfftw.interfaces.cache.enable() 
-            effort = 'FFTW_MEASURE'
-
             if self.realVars:
-                self.fft2 = (lambda x:
-                        pyfftw.interfaces.numpy_fft.rfft2(x, 
-                                threads=self.nThreads, planner_effort=effort))
-                self.ifft2 = (lambda x:
-                        pyfftw.interfaces.numpy_fft.irfft2(x, 
-                                threads=self.nThreads, planner_effort=effort))
+                self.fft2 = (lambda x: pyfftw.interfaces.numpy_fft.rfft2(x, 
+                                threads=self.nThreads, planner_effort=fftwEffort))
+                self.ifft2 = (lambda x: pyfftw.interfaces.numpy_fft.irfft2(x, 
+                                threads=self.nThreads, planner_effort=fftwEffort))
             else:
-                self.fft2 = (lambda x:
-                        pyfftw.interfaces.numpy_fft.fft2(x, 
-                                threads=self.nThreads, planner_effort=effort))
-                self.ifft2 = (lambda x:
-                        pyfftw.interfaces.numpy_fft.ifft2(x, 
-                                threads=self.nThreads, planner_effort=effort))
+                self.fft2 = (lambda x: pyfftw.interfaces.numpy_fft.fft2(x, 
+                                threads=self.nThreads, planner_effort=fftwEffort))
+                self.ifft2 = (lambda x: pyfftw.interfaces.numpy_fft.ifft2(x, 
+                                threads=self.nThreads, planner_effort=fftwEffort))
 
         # Build transform objects for user-specified transforms.
         if self.realVars:
             if hasattr(self, 'forwardTransforms'):
                 for var in self.forwardTransforms:
                     setattr(self, 'fft2_'+var, pyfftw.builders.rfft2(
-                        getattr(self, var), planner_effort=effort, 
+                        getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
                     
                     # Ensure that input array is contiguous and byte-aligned.
-                    setattr(self, var, np.ascontiguousarray(
-                        getattr(self, var)))
+                    setattr(self, var, np.ascontiguousarray(getattr(self, var)))
                     pyfftw.byte_align(getattr(self, var))
 
             if hasattr(self, 'inverseTransforms'):
                 for var in self.inverseTransforms:
                     setattr(self, 'ifft2_'+var, pyfftw.builders.irfft2(
-                        getattr(self, var), planner_effort=effort, 
+                        getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
 
                     # Ensure that input array is contiguous and byte-aligned.
-                    setattr(self, var, np.ascontiguousarray(
-                        getattr(self, var)))
+                    setattr(self, var, np.ascontiguousarray(getattr(self, var)))
                     pyfftw.byte_align(getattr(self, var))
 
         else:
             if hasattr(self, 'forwardTransforms'):
                 for var in self.forwardTransforms:
                     setattr(self, 'fft2_'+var, pyfftw.builders.fft2(
-                        getattr(self, var), planner_effort=effort, 
+                        getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
 
                     # Ensure that input array is contiguous and byte-aligned.
@@ -216,7 +210,7 @@ class doublyPeriodicModel(object):
             if hasattr(self, 'inverseTransforms'):
                 for var in self.inverseTransforms:
                     setattr(self, 'ifft2_'+var, pyfftw.builders.ifft2(
-                        getattr(self, var), planner_effort=effort, 
+                        getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
 
                     # Ensure that input array is contiguous and byte-aligned.

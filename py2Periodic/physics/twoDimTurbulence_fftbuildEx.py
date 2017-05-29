@@ -3,7 +3,7 @@ import numexpr as ne
 import time as timeTools
 import matplotlib.pyplot as plt
 
-from ..doublyPeriodic_fastFFT import doublyPeriodicModel
+from ..doublyPeriodic import doublyPeriodicModel
 from numpy import pi 
 
 
