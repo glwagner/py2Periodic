@@ -174,49 +174,36 @@ class doublyPeriodicModel(object):
                                 threads=self.nThreads, planner_effort=fftwEffort))
 
         # Build transform objects for user-specified transforms.
-        if self.realVars:
-            if hasattr(self, 'forwardTransforms'):
-                for var in self.forwardTransforms:
+        if hasattr(self, 'forwardTransforms'):
+            for var in self.forwardTransforms:
+                if self.realVars:
                     setattr(self, 'fft2_'+var, pyfftw.builders.rfft2(
                         getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
-                    
-                    # Ensure that input array is contiguous and byte-aligned.
-                    setattr(self, var, np.ascontiguousarray(getattr(self, var)))
-                    pyfftw.byte_align(getattr(self, var))
 
-            if hasattr(self, 'inverseTransforms'):
-                for var in self.inverseTransforms:
-                    setattr(self, 'ifft2_'+var, pyfftw.builders.irfft2(
-                        getattr(self, var), planner_effort=fftwEffort, 
-                        threads=self.nThreads))
-
-                    # Ensure that input array is contiguous and byte-aligned.
-                    setattr(self, var, np.ascontiguousarray(getattr(self, var)))
-                    pyfftw.byte_align(getattr(self, var))
-
-        else:
-            if hasattr(self, 'forwardTransforms'):
-                for var in self.forwardTransforms:
+                else:
                     setattr(self, 'fft2_'+var, pyfftw.builders.fft2(
                         getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
+                    
+                # Ensure that input array is contiguous and byte-aligned.
+                setattr(self, var, np.ascontiguousarray(getattr(self, var)))
+                pyfftw.byte_align(getattr(self, var))
 
-                    # Ensure that input array is contiguous and byte-aligned.
-                    setattr(self, var, np.ascontiguousarray(
-                        getattr(self, var)))
-                    pyfftw.byte_align(getattr(self, var))
-
-            if hasattr(self, 'inverseTransforms'):
-                for var in self.inverseTransforms:
+        if hasattr(self, 'inverseTransforms'):
+            for var in self.inverseTransforms:
+                if self.realVars:
+                    setattr(self, 'ifft2_'+var, pyfftw.builders.irfft2(
+                        getattr(self, var), planner_effort=fftwEffort, 
+                        threads=self.nThreads))
+                else:
                     setattr(self, 'ifft2_'+var, pyfftw.builders.ifft2(
                         getattr(self, var), planner_effort=fftwEffort, 
                         threads=self.nThreads))
 
-                    # Ensure that input array is contiguous and byte-aligned.
-                    setattr(self, var, np.ascontiguousarray(
-                        getattr(self, var)))
-                    pyfftw.byte_align(getattr(self, var))
+                # Ensure that input array is contiguous and byte-aligned.
+                setattr(self, var, np.ascontiguousarray(getattr(self, var)))
+                pyfftw.byte_align(getattr(self, var))
 
     
     # User inteaction - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
