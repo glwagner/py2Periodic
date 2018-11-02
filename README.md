@@ -1,7 +1,5 @@
 # Overview
 
-**Note:** ``py2Periodic`` is under rapid and somewhat chaotic development.
-
 ``py2Periodic`` provides a framework for solving PDEs with a 
 pseudospectral method on doubly-periodic domains. In short, 
 the framework defines a base-class, sub-class relationship between
